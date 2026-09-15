@@ -1,0 +1,627 @@
+/* style.css - Tema Meteorológico Profissional Dark Mode */
+
+:root {
+    --bg-main: #0b0f19;
+    --bg-card: #131b2e;
+    --bg-card-hover: #1a243d;
+    --border-color: #1e293b;
+    --border-focus: #38bdf8;
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    
+    --primary: #0284c7;
+    --primary-hover: #0369a1;
+    --accent: #38bdf8;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --purple: #a855f7;
+
+    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: var(--font-main);
+    line-height: 1.5;
+    font-size: 14px;
+    min-height: 100vh;
+}
+
+/* -------------------------------------------------------------
+   HEADER & NAVBAR
+   ------------------------------------------------------------- */
+.app-header {
+    background-color: #0f172a;
+    border-bottom: 1px solid var(--border-color);
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-icon {
+    font-size: 26px;
+}
+
+.brand-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #ffffff;
+}
+
+.brand-subtitle {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* -------------------------------------------------------------
+   FOCO SUL DO BRASIL - BARRA RÁPIDA DE ACESSO
+   ------------------------------------------------------------- */
+.quick-access-bar {
+    background: linear-gradient(90deg, #0e1e38 0%, #112240 100%);
+    border-bottom: 2px solid #0284c7;
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.quick-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.quick-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-quick-station {
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    color: #e2e8f0;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-quick-station:hover {
+    background-color: rgba(56, 189, 248, 0.15);
+    border-color: var(--accent);
+    color: #ffffff;
+}
+
+.btn-quick-station.active {
+    background-color: var(--primary);
+    border-color: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(2, 132, 199, 0.5);
+}
+
+.badge-uf {
+    background-color: rgba(0, 0, 0, 0.35);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 10px;
+    color: #38bdf8;
+}
+
+/* -------------------------------------------------------------
+   STATUS BAR
+   ------------------------------------------------------------- */
+.status-bar {
+    padding: 6px 24px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.status-info { background-color: #1e293b; color: #94a3b8; }
+.status-loading { background-color: #0c4a6e; color: #38bdf8; }
+.status-success { background-color: #064e3b; color: #34d399; }
+.status-warning { background-color: #78350f; color: #fde047; }
+.status-error { background-color: #7f1d1d; color: #fca5a5; }
+
+/* -------------------------------------------------------------
+   BARRA DE CONTROLE / FILTROS
+   ------------------------------------------------------------- */
+.controls-panel {
+    background-color: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    padding: 14px 24px;
+}
+
+.controls-grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.control-group label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.control-input, .control-select {
+    background-color: #0f172a;
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.control-input:focus, .control-select:focus {
+    border-color: var(--border-focus);
+}
+
+.button-group-inline {
+    display: flex;
+    gap: 4px;
+}
+
+.btn {
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    color: var(--text-main);
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn:hover {
+    background-color: #334155;
+    color: #ffffff;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: #ffffff;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* -------------------------------------------------------------
+   AMOSTRAS HISTÓRICAS E PARCELAS
+   ------------------------------------------------------------- */
+.secondary-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.samples-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.samples-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.btn-sample {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    color: #cbd5e1;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-sample:hover {
+    background-color: rgba(56, 189, 248, 0.12);
+    border-color: var(--accent);
+    color: #ffffff;
+}
+
+.parcel-selector {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+}
+
+.parcel-selector label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    color: #cbd5e1;
+}
+
+/* -------------------------------------------------------------
+   INFORMAÇÃO DA ESTAÇÃO SELECIONADA
+   ------------------------------------------------------------- */
+.station-banner {
+    background-color: #0d1527;
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.stn-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.stn-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.stn-desc {
+    font-size: 12px;
+    color: #38bdf8;
+    font-style: italic;
+}
+
+/* -------------------------------------------------------------
+   MAIN CONTENT AREA
+   ------------------------------------------------------------- */
+.main-layout {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.tabs-header {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.tab-button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-button:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.tab-button.active {
+    color: #ffffff;
+    background-color: var(--primary);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* -------------------------------------------------------------
+   DIAGRAMAS (SKEW-T E HODÓGRAFO)
+   ------------------------------------------------------------- */
+.charts-container {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+}
+
+@media (max-width: 1200px) {
+    .charts-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.chart-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-card-header {
+    background-color: #0f172a;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chart-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #e2e8f0;
+}
+
+.canvas-wrapper {
+    position: relative;
+    width: 100%;
+    background-color: #0f172a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#skewtCanvas {
+    width: 100%;
+    height: 680px;
+    display: block;
+}
+
+#hodoCanvas {
+    width: 100%;
+    height: 380px;
+    display: block;
+}
+
+.layers-toolbar {
+    background-color: #0c1322;
+    padding: 8px 14px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 11px;
+}
+
+.layer-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+
+.layer-toggle input:checked + span {
+    color: #e2e8f0;
+}
+
+/* -------------------------------------------------------------
+   CARDS DE PARÂMETROS ORGANIZADOS
+   ------------------------------------------------------------- */
+.params-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 10px;
+}
+
+.param-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.param-card-header {
+    background-color: #0f172a;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.param-card-header h3 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #e2e8f0;
+}
+
+.param-card-body {
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.param-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: 12px;
+}
+
+.param-row:last-child {
+    border-bottom: none;
+}
+
+.param-row.highlight-row {
+    background-color: rgba(56, 189, 248, 0.07);
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin: 2px 0;
+}
+
+.param-name {
+    color: #cbd5e1;
+    font-weight: 500;
+}
+
+.param-val {
+    color: #ffffff;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.param-val .unit {
+    color: var(--text-dim);
+    font-size: 11px;
+}
+
+/* -------------------------------------------------------------
+   BADGES DE SEVERIDADE
+   ------------------------------------------------------------- */
+.badge {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.badge-stable { background-color: #1e293b; color: #94a3b8; }
+.badge-favorable { background-color: #064e3b; color: #34d399; }
+.badge-marginal { background-color: #0c4a6e; color: #38bdf8; }
+.badge-moderate { background-color: #78350f; color: #fde047; }
+.badge-extreme { background-color: #7f1d1d; color: #fca5a5; }
+.badge-cap { background-color: #4c1d95; color: #d8b4fe; }
+
+/* -------------------------------------------------------------
+   TABELA DE NÍVEIS VERTICAIS
+   ------------------------------------------------------------- */
+.table-responsive {
+    overflow-x: auto;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.levels-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    text-align: right;
+}
+
+.levels-table th, .levels-table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.levels-table th {
+    background-color: #0f172a;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    position: sticky;
+    top: 0;
+}
+
+.levels-table tr:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.text-danger { color: #f87171 !important; font-weight: 600; }
+.text-success { color: #34d399 !important; font-weight: 600; }
+.text-muted { color: var(--text-dim); }
+
+/* -------------------------------------------------------------
+   FOOTER
+   ------------------------------------------------------------- */
+.app-footer {
+    border-top: 1px solid var(--border-color);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+.footer-link {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.footer-link:hover {
+    text-decoration: underline;
+}

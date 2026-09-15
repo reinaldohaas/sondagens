@@ -1,0 +1,6 @@
+# O servidor app.py roda nativamente com a biblioteca padrao do Python (sem dependencias externas obrigatorias).
+# Pacotes opcionais recomendados para analise avancada de sondagens via script Python:
+requests>=2.31.0
+numpy>=1.26.0
+pandas>=2.2.0
+metpy>=1.6.0

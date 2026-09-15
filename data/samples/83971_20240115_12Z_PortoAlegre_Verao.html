@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<HTML>
+<HEAD>
+<TITLE>Wyoming Weather Web</TITLE>
+
+<link rel="stylesheet" href="/resources/weather.css" type="text/css">
+
+</HEAD>
+
+<BODY>
+<link rel="stylesheet" href="/resources/weather.css" type="text/css">
+<div id="masthead">
+<table style="min-width:1005px; max-width:2400px;" width="100%" border="0" 
+  cellpadding="0" cellspacing="0">
+ <tr>
+  <td><div id="logo-container">
+   <img src="/images/uwlogo.png" border="0"></div></td>
+  <td valign="top" align="right">
+   <table>
+    <tr>
+     <td valign="top" align="right"><div id="wywx"><a href="/index.shtml">
+      Wyoming Weather Web</A></div></td>
+    </tr>
+    <tr>
+     <td valign="top" align="right" width="600">
+     <div id="depts">
+      <a href="http://www.uwyo.edu/atsc">Atmospheric Science</A> |
+      <a href="http://www.uwyo.edu/ceas">Engineering and Applied Science</A> |
+      <a href="http://www.uwyo.edu/">UWyo Home</A>
+     </div>
+     </td>
+    </tr>
+   </table>
+  </td>
+ </tr>
+</table>
+</div>
+
+<!-- left menu -->
+<!-- #include virtual="/resources/leftmenu.html" -->
+
+<div id="leftmenu">
+<p>Other data for Station 83971</p>
+<ul>
+<li><a href="/wsgi/sounding?datetime=2024-01-15 00:00:00&id=83971&type=TEXT:LIST&src=FM35">00Z Jan 15 </a></li>
+<li><a href="/wsgi/sounding?datetime=2024-01-16 00:00:00&id=83971&type=TEXT:LIST&src=FM35">00Z Jan 16 </a></li>
+<li><a href="/wsgi/sounding?datetime=2024-01-15 12:00:00&id=83971&type=INDICES&src=FM35">
+              Thermodyamic Indices</a></li>
+<li><a href="/wsgi/sounding?datetime=2024-01-15 12:00:00&id=83971&type=TEXT:AVIATION&src=FM35">
+              Aviation Units</a></li>
+<li><a href="/wsgi/sounding?datetime=2024-01-15 12:00:00&id=83971&type=TEXT:CSV&src=FM35">
+              Comma Separated Values</a></li>
+<li><a href="/wsgi/sounding?datetime=2024-01-15 12:00:00&id=83971&type=PNG:SKEWT&src=FM35">
+              Skew-T PNG image</a></li>
+<li><a href="/wsgi/sounding?datetime=2024-01-15 12:00:00&id=83971&type=PNG:STUVE&src=FM35">
+              Stuve PNG image</a></li>
+<li><a href="/wsgi/sounding?datetime=2024-01-15 12:00:00&id=83971&type=PNG:STUVE10&src=FM35">
+              Stuve PNG image to 10 hPa</a></li>
+<li><a href="/wsgi/sounding?datetime=2024-01-15 12:00:00&id=83971&type=INVENTORY&src=FM35">
+              Inventory for year</a></li>
+</ul>
+</div>
+<div id="maincolumn">
+<H1>Observations for Station 83971 at 12 UTC 15 Jan 2024</H1>
+<H3>PORTO ALEGRE (AEROPORTO), Brazil</H3>
+
+<style>
+.collapsible {
+  background-color: #777;
+  color: white;
+  cursor: pointer;
+  padding: 8px;
+  width: 100%;
+  border: none;
+  text-align: left;
+  outline: none;
+  font-size: 15px;
+}
+
+.active, .collapsible:hover {
+  background-color: #555;
+}
+
+.collapsible:before {
+  content: "\2212 ";
+  color: white;
+  font-weight: bold;
+  float: left;
+  margin-left: 5px;
+}
+
+.active:before {
+  content: '\002B ';
+}
+
+.content {
+  padding: 0 18px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease-out;
+  background-color: #f1f1f1;
+}
+</style>
+<BR/><I>Latitude: -30.000 Longitude: -51.180</I>
+<BR/><BR/>
+<button class="collapsible">Profile</button><div class="content">
+<PRE>
+-----------------------------------------------------------------------------
+   PRES   HGHT   TEMP   DWPT   RELH   MIXR   DRCT   SPED   THTA   THTE   THTV
+    hPa      m      C      C      %   g/kg    deg    m/s      K      K      K 
+-----------------------------------------------------------------------------
+ 1011.0      3   25.0   21.9     83  16.57    260    2.1  297.2  345.3  300.2
+ 1000.0    103   22.8   20.8     89  15.64    275    3.6  295.9  341.1  298.7
+  977.1    305   21.2   20.2     94  15.39    295    5.7  296.3  340.8  299.1
+  971.0    360   20.8   20.0     95  15.32    291    5.8  296.4  340.8  299.2
+  953.0    522   21.6   17.3     77  13.14    281    6.4  298.8  337.3  301.2
+  943.4    610   21.1   17.0     77  12.99    275    6.7  299.2  337.3  301.5
+  925.0    781   20.2   16.3     78  12.70    270    4.1  300.0  337.4  302.2
+  910.9    914   19.6   15.5     77  12.23    285    3.6  300.6  336.8  302.8
+  894.0   1076   18.8   14.5     76  11.69    309    5.0  301.4  336.1  303.6
+  879.3   1219   19.1   12.2     64  10.24    330    6.2  303.2  333.9  305.1
+  856.0   1450   19.6    8.6     49   8.22    302    7.8  306.0  331.1  307.6
+  850.0   1511   19.2    9.2     52   8.62    295    8.2  306.2  332.6  307.8
+  848.7   1524   19.1    9.0     52   8.55    280    9.3  306.3  332.4  307.9
+  818.9   1829   17.7    5.5     45   6.94    280   10.8  308.0  329.5  309.3
+  790.2   2134   16.3    2.0     38   5.60    255    9.8  309.6  327.2  310.7
+  768.0   2377   15.2   -0.8     33   4.70    255   11.0  310.9  325.9  311.8
+  762.4   2438   14.6    0.2     37   5.09    255   11.3  310.9  327.0  311.9
+  722.0   2895    9.8    7.5     86   9.05    258   14.0  310.5  338.6  312.2
+  700.0   3152    8.0    5.6     85   8.18    260   15.4  311.3  336.8  312.8
+  660.0   3635    5.0   -2.0     61   5.01    262   15.9  313.2  329.3  314.2
+  610.3   4267   -1.0   -3.4     84   4.89    265   16.5  313.4  329.1  314.4
+  606.0   4324   -1.5   -3.5     86   4.88    266   16.6  313.4  329.1  314.4
+  592.0   4510   -2.9   -5.8     80   4.20    269   16.9  313.9  327.5  314.7
+  587.4   4572   -3.1   -9.8     60   3.11    270   17.0  314.4  324.6  315.0
+  587.0   4577   -3.1  -10.1     58   3.02    270   17.0  314.4  324.4  315.0
+  583.0   4632   -1.7  -26.7     13   0.74    269   17.4  316.7  319.3  316.8
+  579.0   4686   -1.5  -30.5      9   0.52    268   17.8  317.6  319.5  317.7
+  542.0   5208   -5.1  -43.1      3   0.16    260   21.4  319.3  319.9  319.3
+  524.0   5473   -4.7  -53.7      1   0.05    256   23.2  322.9  323.1  322.9
+  500.0   5840   -6.9  -49.9      2   0.08    250   25.7  324.6  324.9  324.6
+  483.8   6096   -8.0  -51.0      2   0.07    245   27.3  326.3  326.6  326.3
+  465.0   6404   -9.3  -52.3      2   0.07    245   28.2  328.4  328.7  328.4
+  400.0   7550  -17.9  -48.9      5   0.11    245   31.9  331.6  332.1  331.7
+  396.3   7620  -18.5  -49.5      5   0.11    245   30.9  331.8  332.2  331.8
+  391.0   7720  -19.3  -50.3      5   0.10    246   31.8  332.0  332.4  332.0
+  364.7   8230  -21.9  -54.4      4   0.07    250   36.5  335.1  335.4  335.2
+  349.9   8534  -23.5  -56.8      3   0.05    260   37.6  337.0  337.2  337.0
+  323.0   9121  -26.5  -61.5      2   0.03    246   42.5  340.7  340.8  340.7
+  322.0   9144  -26.7  -61.6      2   0.03    245   42.7  340.7  340.8  340.7
+  300.0   9650  -30.9  -62.9      3   0.03    245   44.3  341.7  341.8  341.7
+  257.0  10723  -39.9  -64.9      5   0.02    245   44.7  343.9  344.0  343.9
+  250.0  10910  -41.1  -67.1      5   0.02    245   44.8  344.8  344.9  344.8
+  238.0  11236  -43.7  -68.4      5   0.02    245   47.9  345.8  345.9  345.8
+  236.5  11278  -44.0  -68.5      5   0.02    245   47.9  345.9  346.0  345.9
+  200.0  12390  -52.9  -72.9      7   0.01    235   43.8  348.8  348.9  348.8
+  192.0  12652  -55.3  -73.3      9   0.01    235   43.4  349.1  349.1  349.1
+  187.4  12802  -56.3  -74.0      9   0.01    235   43.2  349.9  350.0  349.9
+  150.0  14190  -65.3  -80.3     11   0.00    260   39.1  357.4  357.4  357.4
+  148.0  14272  -65.9  -80.9     11   0.00    257   38.2  357.7  357.8  357.7
+  146.7  14326  -66.1  -81.2     11   0.00    255   37.6  358.3  358.4  358.3
+  126.0  15240  -69.1  -86.4      7   0.00    270   43.2  368.7  368.7  368.7
+  119.8  15545  -70.2  -88.1      6   0.00    260   45.3  372.2  372.2  372.2
+  119.0  15584  -70.3  -88.3      6   0.00    259   44.6  372.7  372.7  372.7
+  106.0  16268  -73.3  -86.3     13   0.00    240   33.0  379.5  379.5  379.5
+  101.0  16552  -72.9  -86.9     11   0.00    236   29.1  385.5  385.5  385.5
+  100.0  16610  -73.1  -87.1     11   0.00    235   28.3  386.2  386.2  386.2
+   97.4  16764  -72.0  -87.5      9   0.00    235   28.3  391.2  391.3  391.2
+   93.0  17037  -70.1  -88.1      6   0.00    255   14.4  400.2  400.3  400.2
+   86.0  17495  -71.4  -88.5      7   0.00    215   17.5  406.7  406.7  406.7
+   81.0  17845  -72.3  -88.9      7   0.00    240   14.4  411.8  411.8  411.8
+   70.0  18700  -74.7  -89.7      9   0.00    250    7.7  424.3  424.3  424.3
+   69.4  18750  -75.1  -90.1      9   0.00    250    7.7  424.4  424.5  424.4
+   68.0  18869  -73.2  -90.1      7   0.00    250    7.7  431.0  431.1  431.0
+   67.0  18956  -71.8  -90.1      6   0.00    275    6.2  435.9  435.9  435.9
+   66.0  19044  -70.4  -90.1      5   0.00    315    7.7  440.8  440.8  440.8
+   65.8  19062  -70.1  -90.1      4   0.00    314    7.7  441.8  441.8  441.8
+   60.9  19517  -72.9  -89.9      7   0.00    301    6.6  445.5  445.5  445.5
+   59.0  19705  -71.7  -90.4      5   0.00    295    6.2  452.2  452.2  452.2
+   55.0  20121  -69.1  -91.5      3   0.00    215    7.2  467.3  467.3  467.3
+   52.4  20408  -67.3  -92.3      2   0.00    232    5.9  478.0  478.0  478.0
+   52.0  20454  -67.3  -92.1      2   0.00    235    5.7  479.1  479.1  479.1
+   51.0  20571  -67.3  -91.7      2   0.00    220    5.2  481.7  481.8  481.7
+   50.0  20690  -67.3  -91.3      2   0.00    235    4.1  484.5  484.5  484.5
+   49.1  20800  -67.7  -92.7      2   0.00    163    2.7  486.1  486.1  486.1
+   49.0  20812  -67.3  -92.6      2   0.00    155    2.6  487.2  487.2  487.2
+   48.1  20925  -64.1  -92.1      1   0.00    129    3.3  497.5  497.5  497.5
+   46.0  21203  -63.5  -91.8      1   0.00     65    5.2  505.4  505.4  505.4
+   45.0  21341  -63.2  -91.6      1   0.00     50    6.2  509.3  509.3  509.3
+   43.0  21624  -62.5  -91.2      1   0.00     85    7.7  517.5  517.5  517.5
+   41.0  21921  -61.9  -90.9      1   0.00     90    7.7  526.3  526.3  526.3
+   40.0  22075  -61.5  -90.7      1   0.00     65    5.2  530.9  530.9  530.9
+   38.0  22395  -60.8  -90.3      1   0.00     90    5.7  540.5  540.6  540.5
+   34.0  23089  -59.2  -89.5      1   0.00     60    7.7  562.1  562.1  562.1
+   33.0  23275  -58.8  -89.2      1   0.00     95    7.7  568.0  568.0  568.0
+   31.0  23665  -58.0  -88.8      1   0.01     60    8.8  580.6  580.6  580.6
+   30.0  23870  -57.5  -88.5      1   0.01     80    9.8  587.3  587.4  587.3
+   29.0  24085  -56.9  -88.4      1   0.01     90    9.8  594.7  594.8  594.7
+   28.0  24308  -56.2  -88.3      1   0.01     65   11.8  602.5  602.5  602.5
+   27.0  24538  -55.6  -88.2      1   0.01     80   11.3  610.6  610.7  610.6
+   26.3  24705  -55.1  -88.1      1   0.01     73   12.2  616.6  616.7  616.6
+   25.0  25030  -54.7  -87.9      1   0.01     60   13.9  626.6  626.7  626.7
+   22.0  25849  -53.8  -87.4      1   0.01     65    9.3  652.7  652.8  652.7
+   21.0  26147  -53.5  -87.3      1   0.01     80   16.0  662.5  662.6  662.5
+   20.0  26460  -53.1  -87.1      1   0.01     75   16.0  672.9  673.0  672.9
+   19.7  26557  -53.3  -87.3      1   0.01     84   15.2  675.2  675.3  675.2
+   19.0  26793  -52.2  -86.8      1   0.01    105   13.4  685.6  685.8  685.6
+   16.4  27752  -47.7  -84.7      1   0.02    109   16.9  729.6  729.8  729.6
+</PRE></div>
+<button class="collapsible">Indicies</button><div class="content">
+<H3>Sounding Indices</H3>
+<TABLE>
+<TR>
+  <TD>SLAT</TD>
+  <TD>Station Latitude</TD>
+  <TD style="text-align: right;">-30.0</TD>
+  <TD>degrees_north</TD>
+</TR>
+<TR>
+  <TD>SLON</TD>
+  <TD>Station Longitude</TD>
+  <TD style="text-align: right;">-51.18</TD>
+  <TD>degrees_east</TD>
+</TR>
+<TR>
+  <TD>SELV</TD>
+  <TD>Station Elevation</TD>
+  <TD style="text-align: right;">3</TD>
+  <TD>meter</TD>
+</TR>
+<TR>
+  <TD>SHOW</TD>
+  <TD>Showalter Index</TD>
+  <TD style="text-align: right;">3.2</TD>
+  <TD>delta_degree_Celsius</TD>
+</TR>
+<TR>
+  <TD>LFVT</TD>
+  <TD>Virtual Lifted Index</TD>
+  <TD style="text-align: right;">-1.9</TD>
+  <TD>delta_degree_Celsius</TD>
+</TR>
+<TR>
+  <TD>SWET</TD>
+  <TD>SWEAT Index</TD>
+  <TD style="text-align: right;">152.6</TD>
+  <TD>dimensionless</TD>
+</TR>
+<TR>
+  <TD>KINX</TD>
+  <TD>K Index</TD>
+  <TD style="text-align: right;">32.9</TD>
+  <TD>degree_Celsius</TD>
+</TR>
+<TR>
+  <TD>CTOT</TD>
+  <TD>Cross Totals</TD>
+  <TD style="text-align: right;">16.1</TD>
+  <TD>delta_degree_Celsius</TD>
+</TR>
+<TR>
+  <TD>VTOT</TD>
+  <TD>Vertical Totals</TD>
+  <TD style="text-align: right;">26.1</TD>
+  <TD>delta_degree_Celsius</TD>
+</TR>
+<TR>
+  <TD>TOTL</TD>
+  <TD>Total Totals</TD>
+  <TD style="text-align: right;">42.2</TD>
+  <TD>delta_degree_Celsius</TD>
+</TR>
+<TR>
+  <TD>DCAPE</TD>
+  <TD>Downward CAPE</TD>
+  <TD style="text-align: right;">1349.8</TD>
+  <TD>joule / kilogram</TD>
+</TR>
+<TR>
+  <TD>MUCAPE</TD>
+  <TD>Most Unstable CAPE</TD>
+  <TD style="text-align: right;">296.9</TD>
+  <TD>joule / kilogram</TD>
+</TR>
+<TR>
+  <TD>MUCIN</TD>
+  <TD>Most Unstable CIN</TD>
+  <TD style="text-align: right;">-178.4</TD>
+  <TD>joule / kilogram</TD>
+</TR>
+<TR>
+  <TD>LCLP</TD>
+  <TD>Lifted Condensation Level</TD>
+  <TD style="text-align: right;">956.0</TD>
+  <TD>hectopascal</TD>
+</TR>
+<TR>
+  <TD>LCLT</TD>
+  <TD>Temperature of the Lifted Condensation Level</TD>
+  <TD style="text-align: right;">19.7</TD>
+  <TD>degree_Celsius</TD>
+</TR>
+<TR>
+  <TD>LCLZ</TD>
+  <TD>Height of the Lifted Condensation Level</TD>
+  <TD style="text-align: right;">498.0</TD>
+  <TD>meter</TD>
+</TR>
+<TR>
+  <TD>CCLP</TD>
+  <TD>Convective Condensation Level</TD>
+  <TD style="text-align: right;">801.1</TD>
+  <TD>hectopascal</TD>
+</TR>
+<TR>
+  <TD>CCLT</TD>
+  <TD>Temperature of the Convective Condensation Level</TD>
+  <TD style="text-align: right;">16.9</TD>
+  <TD>degree_Celsius</TD>
+</TR>
+<TR>
+  <TD>CCLC</TD>
+  <TD>Convective Temperature</TD>
+  <TD style="text-align: right;">36.8</TD>
+  <TD>degree_Celsius</TD>
+</TR>
+<TR>
+  <TD>PWAT</TD>
+  <TD>Precipitable Water</TD>
+  <TD style="text-align: right;">38.2</TD>
+  <TD>millimeter</TD>
+</TR>
+</TABLE>
+</div>
+<P>Description of the <A HREF="/upperair/sounding_columns.html">columns</A>
+
+<script>
+var coll = document.getElementsByClassName("collapsible");
+var i;
+
+for (i = 0; i < coll.length; i++) {
+  coll[i].addEventListener("click", function() {
+    this.classList.toggle("active");
+    var content = this.nextElementSibling;
+    if (content.style.maxHeight){
+      content.style.maxHeight = null;
+    } else {
+      content.style.maxHeight = content.scrollHeight + "px";
+    } 
+  });
+  var content = coll[i].nextElementSibling;
+  content.style.maxHeight = content.scrollHeight + "px";
+}
+</script>
+
+<div id="footer">
+<p/>
+<HR SIZE="1">
+<I>Interested in graduate studies in atmospheric science?
+Check out our program at the
+<a href="https://www.uwyo.edu/atsc/howtoapply/"
+target=_top>University of Wyoming
+</a></I>
+<HR SIZE="1">
+Contributions to support this server may be made to the 
+<a href="https://www.givecampus.com/campaigns/84169/donations/new">
+University of Wyoming Foundation</a>
+<HR SIZE="1"><FONT SIZE="-1">
+Questions about the weather data provided by this site can be
+addressed to <A HREF="mailto:ldoolman@uwyo.edu">
+Larry Oolman (ldoolman@uwyo.edu)</A></FONT>
+<HR SIZE="1">
+</div>
+
+</div>
+</BODY>
+</HTML>

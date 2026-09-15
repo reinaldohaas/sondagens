@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Radiossondagens | Foco Sul do Brasil & Global</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+    <!-- CABEÇALHO PRINCIPAL -->
+    <header class="app-header">
+        <div class="header-brand">
+            <div class="brand-icon">🎈</div>
+            <div>
+                <h1 class="brand-title">Sondagens Atmosféricas</h1>
+                <div class="brand-subtitle">Visualizador Interativo de Radiossondagens • Foco Sul do Brasil & Global</div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <label for="fileUploadInput" class="btn btn-sm">
+                📁 Upload (.txt/.csv/.json)
+            </label>
+            <input type="file" id="fileUploadInput" accept=".txt,.csv,.json,.html,.dat" style="display:none;">
+            <button id="btnExportPng" class="btn btn-sm">📷 Salvar Skew-T (PNG)</button>
+            <button id="btnExportCsv" class="btn btn-sm">📊 Baixar Dados (CSV)</button>
+            <a href="https://github.com/reinaldohaas/sondagens" target="_blank" class="btn btn-sm">⭐ GitHub</a>
+        </div>
+    </header>
+
+    <!-- BARRA RÁPIDA: FOCO NO SUL DO BRASIL -->
+    <section class="quick-access-bar">
+        <div class="quick-label">
+            <span>📍</span> Foco Sul do Brasil:
+        </div>
+        <div class="quick-buttons">
+            <button class="btn-quick-station active" data-station="83971">
+                Porto Alegre <span class="badge-uf">RS • SBPA</span>
+            </button>
+            <button class="btn-quick-station" data-station="83936">
+                Santa Maria <span class="badge-uf">RS • SBSM</span>
+            </button>
+            <button class="btn-quick-station" data-station="83840">
+                Curitiba <span class="badge-uf">PR • SBCT</span>
+            </button>
+            <button class="btn-quick-station" data-station="83827">
+                Foz do Iguaçu <span class="badge-uf">PR • SBFI</span>
+            </button>
+            <button class="btn-quick-station" data-station="83897">
+                Passo Fundo <span class="badge-uf">RS • SBPF</span>
+            </button>
+            <button class="btn-quick-station" data-station="83980">
+                Uruguaiana <span class="badge-uf">RS • SBUG</span>
+            </button>
+            <button class="btn-quick-station" data-station="83997">
+                Pelotas <span class="badge-uf">RS • SBPK</span>
+            </button>
+            <button class="btn-quick-station" data-station="83838">
+                Florianópolis <span class="badge-uf">SC • SBFL</span>
+            </button>
+        </div>
+    </section>
+
+    <!-- BARRA DE STATUS / NOTIFICAÇÕES -->
+    <div id="statusBar" class="status-bar status-info">
+        Pronto. Selecione uma estação ou carregue uma data sinótica (00Z / 12Z).
+    </div>
+
+    <!-- PAINEL DE CONTROLES E FILTROS -->
+    <section class="controls-panel">
+        <div class="controls-grid">
+            <!-- Busca / Seleção de Estação -->
+            <div class="control-group" style="flex: 1.4; min-width: 260px;">
+                <label for="stationSelect">Estação de Radiossondagem</label>
+                <select id="stationSelect" class="control-select">
+                    <!-- Preenchido dinamicamente via stations.js -->
+                </select>
+            </div>
+
+            <!-- Busca rápida por texto / código WMO / ICAO -->
+            <div class="control-group" style="flex: 0.8; min-width: 140px;">
+                <label for="stationSearchInput">Buscar Código / Nome</label>
+                <input type="text" id="stationSearchInput" class="control-input" placeholder="Ex: SBPA, 83971, Curitiba">
+            </div>
+
+            <!-- Seletor de Data -->
+            <div class="control-group" style="min-width: 130px;">
+                <label for="inputDate">Data da Sondagem</label>
+                <input type="date" id="inputDate" class="control-input" value="2024-05-01">
+            </div>
+
+            <!-- Seletor de Horário Sinótico -->
+            <div class="control-group" style="min-width: 90px;">
+                <label for="inputHour">Horário (UTC)</label>
+                <select id="inputHour" class="control-select">
+                    <option value="12" selected>12:00 Z</option>
+                    <option value="00">00:00 Z</option>
+                    <option value="06">06:00 Z</option>
+                    <option value="18">18:00 Z</option>
+                </select>
+            </div>
+
+            <!-- Botões de Navegação Temporal -->
+            <div class="control-group">
+                <label>Navegar Horário</label>
+                <div class="button-group-inline">
+                    <button id="btnPrev12h" class="btn btn-sm" title="12 horas antes">-12h</button>
+                    <button id="btnSet00Z" class="btn btn-sm" title="Definir 00Z">00Z</button>
+                    <button id="btnSet12Z" class="btn btn-sm" title="Definir 12Z">12Z</button>
+                    <button id="btnNext12h" class="btn btn-sm" title="12 horas depois">+12h</button>
+                </div>
+            </div>
+
+            <!-- Botão Principal de Busca -->
+            <div class="control-group" style="align-self: flex-end;">
+                <button id="btnFetch" class="btn btn-primary">
+                    🔍 Buscar Sondagem
+                </button>
+            </div>
+        </div>
+
+        <!-- LINHA SECUNDÁRIA: CASOS PRÉ-CARREGADOS E TIPO DE PARCELA -->
+        <div class="secondary-controls">
+            <!-- Casos Históricos de Referência -->
+            <div class="samples-selector">
+                <span class="samples-label">Casos Pré-Carregados:</span>
+                <button class="btn-sample" data-sample="83971_20240501_12">Porto Alegre (RS) - Enchente Mai/24</button>
+                <button class="btn-sample" data-sample="83971_20240115_12">Porto Alegre (RS) - Alta Instab. Verão</button>
+                <button class="btn-sample" data-sample="83840_20240502_12">Curitiba (PR) - Mai/24</button>
+                <button class="btn-sample" data-sample="83746_20240501_12">Rio Galeão (RJ) - Mai/24</button>
+                <button class="btn-sample" data-sample="72357_severe">Norman / EUA - Supercélula Severa</button>
+            </div>
+
+            <!-- Seletor de Origem da Parcela Convectiva -->
+            <div class="parcel-selector">
+                <span class="samples-label">Origem da Parcela:</span>
+                <label>
+                    <input type="radio" name="parcelType" value="surface" checked>
+                    Superfície (SB)
+                </label>
+                <label>
+                    <input type="radio" name="parcelType" value="mixed_layer">
+                    Camada Misturada 100hPa (ML)
+                </label>
+                <label>
+                    <input type="radio" name="parcelType" value="most_unstable">
+                    Mais Instável 300hPa (MU)
+                </label>
+            </div>
+        </div>
+    </section>
+
+    <!-- BANNER DE INFORMAÇÃO DA ESTAÇÃO -->
+    <section class="station-banner">
+        <div>
+            <div id="stnInfoName" class="stn-title">Porto Alegre / Salgado Filho (SBPA)</div>
+            <div id="stnInfoMeta" class="stn-meta">WMO ID: 83971 | Lat: -30.00° | Lon: -51.18° | Alt: 3m | Sul do Brasil, Brasil</div>
+        </div>
+        <div id="stnInfoDesc" class="stn-desc">
+            Estação principal do Rio Grande do Sul. Monitoramento da bacia do Guaíba, frentes frias e Linhas de Instabilidade.
+        </div>
+    </section>
+
+    <!-- ÁREA PRINCIPAL COM ABAS -->
+    <main class="main-layout">
+        <div class="tabs-header">
+            <button class="tab-button active" data-tab="tabDiagrams">📈 Diagramas Skew-T & Hodógrafo</button>
+            <button class="tab-button" data-tab="tabTable">📋 Tabela de Níveis Verticais</button>
+            <button class="tab-button" data-tab="tabGlossary">📚 Guia de Parâmetros Meteorológicos</button>
+        </div>
+
+        <!-- ABA 1: DIAGRAMAS E PARÂMETROS ORGANIZADOS -->
+        <div id="tabDiagrams" class="tab-content active">
+            <div class="charts-container">
+                <!-- CARD DO DIAGRAMA SKEW-T LN-P -->
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <span class="chart-title">Diagrama Termodinâmico Skew-T ln-P</span>
+                        <span style="font-size: 11px; color: var(--text-muted);">Passe o mouse para ler temperatura, pressão e altura</span>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="skewtCanvas"></canvas>
+                    </div>
+                    <!-- CONTROLE DE CAMADAS DO SKEW-T -->
+                    <div class="layers-toolbar">
+                        <label class="layer-toggle">
+                            <input type="checkbox" id="layerIsobars" data-layer="isobars" checked>
+                            <span>Isóbaras</span>
+                        </label>
+                        <label class="layer-toggle">
+                            <input type="checkbox" id="layerIsotherms" data-layer="isotherms" checked>
+                            <span>Isotérmicas (45°)</span>
+                        </label>
+                        <label class="layer-toggle">
+                            <input type="checkbox" id="layerDryAdiabats" data-layer="dryAdiabats" checked>
+                            <span>Adiabáticas Secas</span>
+                        </label>
+                        <label class="layer-toggle">
+                            <input type="checkbox" id="layerMoistAdiabats" data-layer="moistAdiabats" checked>
+                            <span>Adiabáticas Úmidas</span>
+                        </label>
+                        <label class="layer-toggle">
+                            <input type="checkbox" id="layerMixingRatio" data-layer="mixingRatio" checked>
+                            <span>Razão de Mistura</span>
+                        </label>
+                        <label class="layer-toggle">
+                            <input type="checkbox" id="layerParcel" data-layer="parcelTrajectory" checked>
+                            <span>Trajetória da Parcela</span>
+                        </label>
+                        <label class="layer-toggle">
+                            <input type="checkbox" id="layerCapeCin" data-layer="capeShading" checked>
+                            <span>Área CAPE / CIN</span>
+                        </label>
+                        <label class="layer-toggle">
+                            <input type="checkbox" id="layerWindBarbs" data-layer="windBarbs" checked>
+                            <span>Barbelas de Vento</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- CARD DO HODÓGRAFO -->
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <span class="chart-title">Hodógrafo de Vento & Cisalhamento</span>
+                        <span style="font-size: 11px; color: var(--text-muted);">0-12 km</span>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="hodoCanvas"></canvas>
+                    </div>
+                    <div style="padding: 10px 14px; font-size: 11px; color: var(--text-muted); background-color: #0c1322; border-top: 1px solid var(--border-color);">
+                        <div><strong>MW</strong>: Vento Médio 0-6 km | <strong>RM</strong>: Right-Mover | <strong>LM</strong>: Left-Mover</div>
+                        <div style="font-size: 10px; color: #38bdf8; margin-top: 2px;">*No Hemisfério Sul, o Left-Mover (LM) é a tempestade com rotação ciclônica favorável.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LISTA ORGANIZADA DE PARÂMETROS TERMODINÂMICOS E CONVECTIVOS -->
+            <div id="parametersContainer">
+                <!-- Injetado dinamicamente pelo app.js em cards organizados -->
+            </div>
+        </div>
+
+        <!-- ABA 2: TABELA DE NÍVEIS VERTICAIS -->
+        <div id="tabTable" class="tab-content">
+            <div class="table-responsive">
+                <table class="levels-table">
+                    <thead>
+                        <tr>
+                            <th>Pressão (hPa)</th>
+                            <th>Altitude (m)</th>
+                            <th>Temp (°C)</th>
+                            <th>P. Orvalho (°C)</th>
+                            <th>U. Relativa (%)</th>
+                            <th>Razão Mist. (g/kg)</th>
+                            <th>Dir. Vento (°)</th>
+                            <th>Vel. Vento (kt)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="levelsTableBody">
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: var(--text-muted);">Nenhum dado carregado</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ABA 3: GUIA EXPLICATIVO DOS PARÂMETROS -->
+        <div id="tabGlossary" class="tab-content">
+            <div class="params-grid">
+                <div class="param-card">
+                    <div class="param-card-header">
+                        <span class="card-icon">📖</span>
+                        <h3>Instabilidade & Índices Termodinâmicos</h3>
+                    </div>
+                    <div class="param-card-body" style="font-size: 12px; line-height: 1.6;">
+                        <p><strong>CAPE (Energia Potencial Convectiva Disponível):</strong> Mede a flutuabilidade positiva da parcela de ar entre o LFC e o EL. Valores &gt; 1000 J/kg indicam instabilidade moderada; &gt; 2500 J/kg instabilidade severa com potencial para fortes correntes ascendentes, granizo e tempestades intensas no Sul do Brasil.</p>
+                        <p style="margin-top: 8px;"><strong>CIN (Inibição Convectiva):</strong> A energia negativa que impede a parcela de iniciar a convecção espontânea. Atua como "tampa" (capping inversion). Valores entre 0 e -25 J/kg permitem convecção fácil; valores &lt; -100 J/kg bloqueiam tempestades a menos que haja forte forçamento dinâmico frontal.</p>
+                        <p style="margin-top: 8px;"><strong>Lifted Index (LI):</strong> Diferença entre a temperatura ambiente a 500 hPa e a temperatura da parcela elevada até esse nível. Valores negativos (&lt; -3°C) indicam atmosfera instável.</p>
+                        <p style="margin-top: 8px;"><strong>K-Index (KI):</strong> Avalia o potencial para tempestades convectivas de massa de ar combinando temperatura e umidade a 850 e 700 hPa. Valores &gt; 30°C sinalizam alta probabilidade de tempestades com chuvas volumosas.</p>
+                        <p style="margin-top: 8px;"><strong>Total Totals (TT):</strong> Combina o gradiente térmico vertical (VT) e a umidade em baixos níveis (CT). TT &gt; 48°C indica probabilidade de trovoadas; &gt; 52°C favorece tempestades severas com granizo.</p>
+                    </div>
+                </div>
+
+                <div class="param-card">
+                    <div class="param-card-header">
+                        <span class="card-icon">🌪️</span>
+                        <h3>Cisalhamento & Índices Cinemáticos</h3>
+                    </div>
+                    <div class="param-card-body" style="font-size: 12px; line-height: 1.6;">
+                        <p><strong>Cisalhamento 0-6 km (Deep Layer Shear):</strong> Variação vetorial do vento entre a superfície e 6 km AGL. Valores &gt; 35-40 kt são fundamentais para organizar tempestades em linhas multicelulares ou supercélulas de longa duração.</p>
+                        <p style="margin-top: 8px;"><strong>Cisalhamento 0-1 km:</strong> Variação do vento na camada limite planetária. Valores elevados (&gt; 15-20 kt) associados ao Jato em Baixos Níveis (JBN) alimentam o potencial de rotação em baixos níveis e tornados.</p>
+                        <p style="margin-top: 8px;"><strong>SRH (Storm-Relative Helicity):</strong> Helicidade relativa ao movimento da tempestade nas camadas 0-1 km e 0-3 km. Valores &gt; 150 m²/s² sustentam mesociclones persistentes.</p>
+                        <p style="margin-top: 8px;"><strong>Hemisfério Sul vs Norte:</strong> No Sul do Brasil (Hemisfério Sul), o efeito de Coriolis faz com que as supercélulas ciclônicas façam curva para a ESQUERDA do vento médio (Left-Movers - LM).</p>
+                        <p style="margin-top: 8px;"><strong>Água Precipitável (PWAT):</strong> Total de água líquida se toda a coluna de vapor condensasse. Valores &gt; 40-45 mm no Sul do Brasil estão associados a eventos de chuvas torrenciais e inundações históricas.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- RODAPÉ -->
+    <footer class="app-footer">
+        <div>
+            <strong>Visualizador de Radiossondagens</strong> • Desenvolvido para análise meteorológica no Sul do Brasil e mundo.
+        </div>
+        <div>
+            Fontes de Dados: <a href="http://weather.uwyo.edu/upperair/sounding.html" target="_blank" class="footer-link">Univ. of Wyoming Upper Air Data</a> • INMET • REDEMET
+        </div>
+    </footer>
+
+    <!-- SCRIPTS DA APLICAÇÃO -->
+    <script src="assets/js/stations.js"></script>
+    <script src="assets/js/thermo.js"></script>
+    <script src="assets/js/skewt.js"></script>
+    <script src="assets/js/hodograph.js"></script>
+    <script src="assets/js/data-parser.js"></script>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
