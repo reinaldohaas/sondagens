@@ -395,8 +395,19 @@ class SoundingRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         try:
             req = urllib.request.Request(om_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode('utf-8'))
+            resp_bytes = None
+            try:
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    resp_bytes = resp.read()
+            except Exception as e_first:
+                # Se falhou, tenta o endpoint alternativo (ex: Archive vs Forecast)
+                alt_endpoint = 'https://api.open-meteo.com/v1/forecast' if 'archive' in endpoint else 'https://archive-api.open-meteo.com/v1/archive'
+                alt_url = f"{alt_endpoint}?{urllib.parse.urlencode(query)}"
+                req_alt = urllib.request.Request(alt_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req_alt, timeout=15) as resp_alt:
+                    resp_bytes = resp_alt.read()
+
+            data = json.loads(resp_bytes.decode('utf-8'))
                 
                 times = data['hourly']['time']
                 target_iso = f"{date_part}T{hour_part}:00"

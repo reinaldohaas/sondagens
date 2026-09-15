@@ -572,7 +572,7 @@ class SoundingApp {
             const reqDt = new Date(`${dateStr}T12:00:00Z`);
             const daysDiff = (now.getTime() - reqDt.getTime()) / (1000 * 3600 * 24);
 
-            const endpoint = daysDiff >= 3 ? 'https://archive-api.open-meteo.com/v1/archive' : 'https://api.open-meteo.com/v1/forecast';
+            let endpoint = daysDiff >= 3 ? 'https://archive-api.open-meteo.com/v1/archive' : 'https://api.open-meteo.com/v1/forecast';
 
             const query = new URLSearchParams({
                 latitude: station.lat.toFixed(4),
@@ -583,7 +583,13 @@ class SoundingApp {
                 hourly: vars.join(',')
             });
 
-            const resp = await fetch(`${endpoint}?${query.toString()}`);
+            let resp = await fetch(`${endpoint}?${query.toString()}`);
+            if (!resp.ok) {
+                const altEndpoint = endpoint.includes('forecast')
+                    ? 'https://archive-api.open-meteo.com/v1/archive'
+                    : 'https://api.open-meteo.com/v1/forecast';
+                resp = await fetch(`${altEndpoint}?${query.toString()}`);
+            }
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
             const data = await resp.json();

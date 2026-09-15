@@ -62,36 +62,72 @@ class PeriodAnalyzer {
             vars.push(`geopotential_height_${p}hPa`);
         });
 
-        // Determina se usa API de Arquivo Histórico ou Forecast
+        // Determina se usa API de Arquivo Histórico (Archive) ou Previsão (Forecast)
         const now = new Date();
-        const endDt = new Date(`${endDate}T23:59:59Z`);
-        const diffDays = (now.getTime() - endDt.getTime()) / (1000 * 3600 * 24);
+        const yyyy = now.getUTCFullYear();
+        const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(now.getUTCDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
 
+        const startDt = new Date(`${startDate}T00:00:00Z`);
+        const daysAgoStart = (now.getTime() - startDt.getTime()) / (1000 * 3600 * 24);
+
+        // A Archive API suporta desde 1940 até a data de hoje (sem o limite de 90 dias do Forecast).
+        // Se a data de início for anterior a 85 dias atrás, OU se a data final for até hoje, usamos Archive API.
         let baseUrl = 'https://archive-api.open-meteo.com/v1/archive';
-        if (diffDays < 3) {
-            // Recente ou atual: usa API de forecast com past_days
+        let reqEndDate = endDate;
+
+        if (endDate > todayStr && daysAgoStart <= 85) {
+            // Período futuro dentro da janela permitida pelo Forecast
             baseUrl = 'https://api.open-meteo.com/v1/forecast';
+        } else if (endDate > todayStr && daysAgoStart > 85) {
+            // Período que começa no passado distante e vai até o futuro:
+            // Limita a busca no arquivo histórico até hoje para não falhar
+            reqEndDate = todayStr;
         }
 
         const queryParams = new URLSearchParams({
             latitude: station.lat.toFixed(4),
             longitude: station.lon.toFixed(4),
             start_date: startDate,
-            end_date: endDate,
+            end_date: reqEndDate,
             models: 'gfs_seamless',
             hourly: vars.join(',')
         });
 
-        const url = `${baseUrl}?${queryParams.toString()}`;
-        console.log(`[PeriodAnalyzer] Baixando período para ${station.name} (${startDate} a ${endDate})...`);
+        console.log(`[PeriodAnalyzer] Baixando período para ${station.name} (${startDate} a ${reqEndDate}) via ${baseUrl}...`);
 
-        const resp = await fetch(url);
+        let resp = await fetch(`${baseUrl}?${queryParams.toString()}`);
+        let data = null;
+
+        // Se falhou (ex: restrição de datas do Forecast ou Archive), tenta rota alternativa automaticamente!
         if (!resp.ok) {
             const errData = await resp.json().catch(() => ({}));
-            throw new Error(errData.reason || `Falha na requisição (HTTP ${resp.status})`);
-        }
+            const reason = errData.reason || '';
+            console.warn(`[PeriodAnalyzer] Tentativa inicial falhou (${reason}). Tentando rota alternativa...`);
 
-        const data = await resp.json();
+            if (baseUrl.includes('forecast')) {
+                // Tenta na Archive API limitando a data final a hoje
+                const altParams = new URLSearchParams(queryParams);
+                if (altParams.get('end_date') > todayStr) altParams.set('end_date', todayStr);
+                const altResp = await fetch(`https://archive-api.open-meteo.com/v1/archive?${altParams.toString()}`);
+                if (altResp.ok) {
+                    data = await altResp.json();
+                }
+            } else if (baseUrl.includes('archive')) {
+                // Tenta na Forecast API
+                const altResp = await fetch(`https://api.open-meteo.com/v1/forecast?${queryParams.toString()}`);
+                if (altResp.ok) {
+                    data = await altResp.json();
+                }
+            }
+
+            if (!data) {
+                throw new Error(reason || `Falha na requisição (HTTP ${resp.status})`);
+            }
+        } else {
+            data = await resp.json();
+        }
         if (!data.hourly || !data.hourly.time || data.hourly.time.length === 0) {
             throw new Error('Nenhum dado retornado para o período solicitado.');
         }
