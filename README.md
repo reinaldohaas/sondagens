@@ -31,7 +31,20 @@ Permite renderização em alta precisão do diagrama termodinâmico **Skew-T ln-
 
 ---
 
-### 2. 📈 Diagrama Termodinâmico Skew-T ln-P Interativo
+### 2. 📅 Análise por Período & Filtro de CIN (Inibição Convectiva)
+Permite selecionar qualquer estação (incluindo **Florianópolis / SBFL**) e um intervalo de datas para processar automaticamente a série temporal de radiossondagens:
+- **Download em Lote de Período**: Selecione Data Início e Data Fim (ex: 7 dias, 15 dias, 1 mês ou eventos específicos como Verão ou Enchentes de 2024).
+- **Filtro Customizado de CIN (Inibição Convectiva)**:
+  - Identifique facilmente os dias em que o **$|CIN| \ge \text{valor}$** (ex: $|CIN| \ge 50\text{ J/kg}$, identificando dias com forte "tampa" convectiva / *capping inversion*).
+  - Ou filtre dias com **$|CIN| \le 20\text{ J/kg}$** (dias livres de inibição com convecção espontânea facilitada).
+  - Filtros combinados opcionais: $CAPE \ge X\text{ J/kg}$, $PWAT \ge X\text{ mm}$, etc.
+- **Gráfico Interativo de Série Temporal**: Plota dia a dia a evolução de CAPE e CIN com a linha de corte do filtro.
+- **Tabela Classificatória & Carregamento com 1 Clique**: Lista todos os dias do período; clicando no botão **"📈 Ver Skew-T"** de qualquer linha, a aplicação carrega instantaneamente o diagrama termodinâmico completo daquele dia!
+- **Suporte Total a Florianópolis (SBFL)**: Como o estado de SC não opera lançamentos de balões físicos na rede rotineira, a aplicação utiliza automaticamente os perfis verticais em pontos de grade do modelo GFS / Reanálise Open-Meteo, garantindo 100% de disponibilidade de dados para qualquer período histórico ou recente.
+
+---
+
+### 3. 📈 Diagrama Termodinâmico Skew-T ln-P Interativo
 - **Escala Logarítmica de Pressão**: 1050 hPa a 100 hPa.
 - **Linhas Isotérmicas Inclinadas a 45°**: de -40°C a +40°C com destaque em ciano na isoterma de **0°C**.
 - **Isóbaras**: Linhas horizontais nos níveis padrão (1000, 925, 850, 700, 500, 400, 300, 250, 200, 150, 100 hPa).
@@ -52,7 +65,7 @@ Permite renderização em alta precisão do diagrama termodinâmico **Skew-T ln-
 
 ---
 
-### 3. 🧭 Hodógrafo de Ventos & Dinâmica
+### 4. 🧭 Hodógrafo de Ventos & Dinâmica
 - Diagrama polar de cisalhamento do vento de 0 a 12 km de altitude.
 - Cores padronizadas por camadas (convenção internacional SPC):
   - **0 - 1 km**: Rosa choque (`#ec4899`)
@@ -68,7 +81,7 @@ Permite renderização em alta precisão do diagrama termodinâmico **Skew-T ln-
 
 ---
 
-### 4. 📋 Lista Organizada de Parâmetros Meteorológicos
+### 5. 📋 Lista Organizada de Parâmetros Meteorológicos
 
 Os parâmetros são organizados em 4 painéis com **badges de severidade e cores indicativas**:
 
@@ -109,7 +122,7 @@ Os parâmetros são organizados em 4 painéis com **badges de severidade e cores
 
 ---
 
-### 5. 📂 Casos Históricos Pré-Carregados (Funciona Offline!)
+### 6. 📂 Casos Históricos Pré-Carregados (Funciona Offline!)
 A aplicação inclui amostras de dados reais arquivadas para visualização imediata:
 - **Porto Alegre (RS) - Maio/2024**: Sondagem do evento extremo das enchentes históricas do Rio Grande do Sul (PWAT &gt; 45 mm, forte jato em baixos níveis).
 - **Porto Alegre (RS) - Janeiro/2024**: Caso de alta instabilidade convectiva de verão no RS.

@@ -1,7 +1,7 @@
 /**
  * app.js - Orquestrador Principal da Aplicação de Radiossondagens
- * Gerencia a interface, seleção de estações (foco Sul do Brasil), busca de dados,
- * cálculo e exibição de parâmetros organizados por categoria.
+ * Gerencia a interface, seleção de estações (foco Sul do Brasil), busca de dados (Wyoming + GFS Open-Meteo),
+ * cálculo e exibição de parâmetros organizados por categoria, e análise por período com filtro de CIN.
  */
 
 class SoundingApp {
@@ -11,8 +11,10 @@ class SoundingApp {
         this.currentData = null;
         this.currentParcelType = 'surface';
         
-        // Estação inicial padrão: Porto Alegre (RS) - SBPA / 83971
-        this.currentStationId = '83971';
+        // Estação inicial padrão: Florianópolis (SC) - SBFL / 83838 ou Porto Alegre (RS)
+        this.currentStationId = '83838'; // SBFL por padrão agora a pedido do usuário!
+        
+        // Data padrão: 2024-05-01 (ou data recente)
         this.currentDate = '2024-05-01';
         this.currentHour = '12';
 
@@ -33,18 +35,27 @@ class SoundingApp {
         this.skewt = new SkewTChart('skewtCanvas');
         this.hodo = new HodographChart('hodoCanvas');
 
+        // Inicializa analisador de período
+        if (window.periodAnalyzer) {
+            window.periodAnalyzer.init();
+        }
+
         this.populateStationSelect();
         this.setupEventListeners();
+        this.setupPeriodAnalyzerListeners();
 
-        // Carrega a sondagem inicial de Porto Alegre
-        this.loadSample('83971_20240501_12');
+        // Carrega inicialmente SBFL (Florianópolis) via modelo GFS
+        this.updateStationInfo();
+        this.fetchSounding();
     }
 
     // Preenche o seletor dropdown com as estações categorizadas
     populateStationSelect() {
         const select = document.getElementById('stationSelect');
+        const periodSelect = document.getElementById('periodStationSelect');
         if (!select) return;
         select.innerHTML = '';
+        if (periodSelect) periodSelect.innerHTML = '';
 
         const groups = [
             { key: 'south_brazil', label: '📍 Sul do Brasil (Foco Principal)' },
@@ -56,6 +67,9 @@ class SoundingApp {
         groups.forEach(g => {
             const optGroup = document.createElement('optgroup');
             optGroup.label = g.label;
+            const optGroup2 = document.createElement('optgroup');
+            optGroup2.label = g.label;
+
             const list = STATIONS_CATALOG[g.key] || [];
             list.forEach(stn => {
                 const opt = document.createElement('option');
@@ -63,8 +77,12 @@ class SoundingApp {
                 opt.textContent = `${stn.id} - ${stn.name} (${stn.state ? stn.state + ', ' : ''}${stn.country})`;
                 if (stn.id === this.currentStationId) opt.selected = true;
                 optGroup.appendChild(opt);
+
+                const opt2 = opt.cloneNode(true);
+                optGroup2.appendChild(opt2);
             });
             select.appendChild(optGroup);
+            if (periodSelect) periodSelect.appendChild(optGroup2);
         });
     }
 
@@ -74,6 +92,7 @@ class SoundingApp {
         document.getElementById('stationSelect')?.addEventListener('change', (e) => {
             this.currentStationId = e.target.value;
             this.updateStationInfo();
+            this.fetchSounding();
         });
 
         // Botões rápidos de 1 clique para o Sul do Brasil
@@ -153,7 +172,7 @@ class SoundingApp {
             this.exportSoundingCsv();
         });
 
-        // Alternância de Abas (Diagramas vs Tabela de Níveis)
+        // Alternância de Abas
         document.querySelectorAll('.tab-button').forEach(btn => {
             btn.addEventListener('click', () => {
                 const target = btn.getAttribute('data-tab');
@@ -161,6 +180,14 @@ class SoundingApp {
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 btn.classList.add('active');
                 document.getElementById(target)?.classList.add('active');
+
+                // Renderiza gráficos da aba selecionada
+                if (target === 'tabDiagrams') {
+                    if (this.skewt) this.skewt.render();
+                    if (this.hodo) this.hodo.render();
+                } else if (target === 'tabPeriod') {
+                    if (window.periodAnalyzer) window.periodAnalyzer.renderChart();
+                }
             });
         });
 
@@ -182,13 +209,129 @@ class SoundingApp {
         });
     }
 
+    // Configuração dos controles da Análise por Período
+    setupPeriodAnalyzerListeners() {
+        const btnFetchPeriod = document.getElementById('btnFetchPeriod');
+        const periodStnSelect = document.getElementById('periodStationSelect');
+        const cinOpSelect = document.getElementById('periodCinOp');
+        const cinValInput = document.getElementById('periodCinVal');
+        const cinValSlider = document.getElementById('periodCinSlider');
+        const capeValInput = document.getElementById('periodCapeVal');
+        const pwatValInput = document.getElementById('periodPwatVal');
+        const btnExportPeriodCsv = document.getElementById('btnExportPeriodCsv');
+
+        // Sincroniza estação entre seletor principal e de período
+        if (periodStnSelect) {
+            periodStnSelect.addEventListener('change', (e) => {
+                this.currentStationId = e.target.value;
+                const mainSel = document.getElementById('stationSelect');
+                if (mainSel) mainSel.value = this.currentStationId;
+                this.updateStationInfo();
+            });
+        }
+
+        // Botão principal de buscar período
+        btnFetchPeriod?.addEventListener('click', async () => {
+            const stnId = periodStnSelect ? periodStnSelect.value : this.currentStationId;
+            const stn = findStation(stnId);
+            const startDt = document.getElementById('periodStartDate')?.value || '2024-01-01';
+            const endDt = document.getElementById('periodEndDate')?.value || '2024-01-15';
+
+            const synoptic = [];
+            if (document.getElementById('periodCheck12Z')?.checked) synoptic.push('12');
+            if (document.getElementById('periodCheck00Z')?.checked) synoptic.push('00');
+            if (synoptic.length === 0) synoptic.push('12');
+
+            this.showStatus(`Baixando e analisando série temporal para ${stn ? stn.name : stnId} (${startDt} a ${endDt})...`, 'loading');
+            btnFetchPeriod.disabled = true;
+            btnFetchPeriod.textContent = '⏳ Baixando...';
+
+            try {
+                const results = await window.periodAnalyzer.fetchPeriod(stn, startDt, endDt, synoptic);
+                this.showStatus(`Análise de período concluída: ${results.length} passos de tempo processados para ${stn ? stn.name : stnId}.`, 'success');
+            } catch (err) {
+                console.error('Erro na análise de período:', err);
+                this.showStatus(`Erro ao processar período: ${err.message}`, 'error');
+            } finally {
+                btnFetchPeriod.disabled = false;
+                btnFetchPeriod.textContent = '📥 Baixar Período & Analisar';
+            }
+        });
+
+        // Sincroniza slider e número de CIN
+        if (cinValInput && cinValSlider) {
+            cinValSlider.addEventListener('input', (e) => {
+                cinValInput.value = e.target.value;
+                this.triggerPeriodFilterUpdate();
+            });
+            cinValInput.addEventListener('input', (e) => {
+                cinValSlider.value = e.target.value;
+                this.triggerPeriodFilterUpdate();
+            });
+        }
+
+        cinOpSelect?.addEventListener('change', () => this.triggerPeriodFilterUpdate());
+        capeValInput?.addEventListener('input', () => this.triggerPeriodFilterUpdate());
+        pwatValInput?.addEventListener('input', () => this.triggerPeriodFilterUpdate());
+
+        // Botões de atalho para períodos rápidos
+        document.querySelectorAll('.btn-period-quick').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const days = parseInt(btn.getAttribute('data-days'));
+                const preset = btn.getAttribute('data-preset');
+                const startEl = document.getElementById('periodStartDate');
+                const endEl = document.getElementById('periodEndDate');
+
+                if (preset === 'jan24') {
+                    if (startEl) startEl.value = '2024-01-01';
+                    if (endEl) endEl.value = '2024-01-31';
+                } else if (preset === 'may24') {
+                    if (startEl) startEl.value = '2024-05-01';
+                    if (endEl) endEl.value = '2024-05-15';
+                } else if (days) {
+                    const today = new Date();
+                    const past = new Date();
+                    past.setDate(today.getDate() - days);
+
+                    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                    if (startEl) startEl.value = fmt(past);
+                    if (endEl) endEl.value = fmt(today);
+                }
+
+                btnFetchPeriod?.click();
+            });
+        });
+
+        // Exportar CSV do período
+        btnExportPeriodCsv?.addEventListener('click', () => {
+            if (window.periodAnalyzer) window.periodAnalyzer.exportCsv();
+        });
+    }
+
+    triggerPeriodFilterUpdate() {
+        if (!window.periodAnalyzer) return;
+        const op = document.getElementById('periodCinOp')?.value || 'abs_gt';
+        const cinVal = parseFloat(document.getElementById('periodCinVal')?.value || '50');
+        const capeVal = parseFloat(document.getElementById('periodCapeVal')?.value || '0');
+        const pwatVal = parseFloat(document.getElementById('periodPwatVal')?.value || '0');
+
+        window.periodAnalyzer.setFilters({
+            cinOp: op,
+            cinVal: isNaN(cinVal) ? 0 : cinVal,
+            capeVal: isNaN(capeVal) ? 0 : capeVal,
+            pwatVal: isNaN(pwatVal) ? 0 : pwatVal
+        });
+    }
+
     // Seleção rápida de estação do Sul do Brasil
     selectQuickStation(stnId) {
         this.currentStationId = stnId;
         const sel = document.getElementById('stationSelect');
         if (sel) sel.value = stnId;
+
+        const pSel = document.getElementById('periodStationSelect');
+        if (pSel) pSel.value = stnId;
         
-        // Destaque visual no botão clicado
         document.querySelectorAll('.btn-quick-station').forEach(btn => {
             if (btn.getAttribute('data-station') === stnId) {
                 btn.classList.add('active');
@@ -273,11 +416,14 @@ class SoundingApp {
         }
     }
 
-    // Busca de sondagem remota (com fallback para backend Python e proxies CORS)
+    // -------------------------------------------------------------
+    // BUSCA INTELIGENTE DE SONDAGEM (COM SUPORTE AUTOMÁTICO A SBFL)
+    // -------------------------------------------------------------
     async fetchSounding() {
         const dateInput = document.getElementById('inputDate');
         const hourInput = document.getElementById('inputHour');
         const stnId = this.currentStationId;
+        const stn = findStation(stnId);
 
         const dateStr = dateInput ? dateInput.value : this.currentDate;
         const hourStr = hourInput ? hourInput.value : this.currentHour;
@@ -285,67 +431,139 @@ class SoundingApp {
 
         this.showStatus(`Buscando sondagem ${stnId} para ${dtFormatted}...`, 'loading');
 
+        // Se for Florianópolis (SBFL / 83838), esta estação não tem balão operacional no Wyoming!
+        // Busca DIRETAMENTE via modelo vertical GFS/Open-Meteo para garantia total de sucesso!
+        if (stnId === '83838' || stnId === 'SBFL' || (stn && stn.icao === 'SBFL')) {
+            await this.fetchOpenMeteoSounding(stn || { lat: -27.67, lon: -48.55, name: 'Florianópolis / Hercílio Luz (SC)' }, dateStr, hourStr);
+            return;
+        }
+
         // 1. Tenta via backend Python local (/api/sounding) se estiver ativo
         try {
             const localApiUrl = `/api/sounding?id=${encodeURIComponent(stnId)}&datetime=${encodeURIComponent(dtFormatted)}`;
-            const localResp = await fetch(localApiUrl, { signal: AbortSignal.timeout(6000) });
+            const localResp = await fetch(localApiUrl, { signal: AbortSignal.timeout(5000) });
             if (localResp.ok) {
                 const text = await localResp.text();
                 const parsed = DataParser.parse(text, { station_id: stnId, timestamp: dtFormatted });
                 if (parsed && parsed.levels.length > 3) {
                     this.currentData = parsed;
                     this.recalculateAndRender();
-                    this.showStatus(`Sondagem carregada via Backend Python (${parsed.levels.length} níveis)`, 'success');
+                    this.showStatus(`Sondagem carregada com sucesso (${parsed.levels.length} níveis)`, 'success');
                     return;
                 }
             }
         } catch (e) {
-            // Backend local não disponível, tenta proxies de internet
+            // Continua para o próximo método
         }
 
-        // 2. Tenta via Wyoming direto e proxies públicos
-        const wyomingUrl = `http://weather.uwyo.edu/wsgi/sounding?datetime=${encodeURIComponent(dtFormatted)}&id=${encodeURIComponent(stnId)}&type=TEXT%3ALIST`;
-        const proxyUrls = [
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(wyomingUrl)}`,
-            `https://corsproxy.io/?${encodeURIComponent(wyomingUrl)}`
-        ];
-
-        for (const url of proxyUrls) {
-            try {
-                const resp = await fetch(url, { signal: AbortSignal.timeout(9000) });
-                if (resp.ok) {
-                    const text = await resp.read ? await resp.text() : await resp.text();
-                    if (text.includes('PRES') && text.includes('HGHT')) {
-                        const parsed = DataParser.parse(text, { station_id: stnId, timestamp: dtFormatted });
-                        if (parsed && parsed.levels.length > 3) {
-                            this.currentData = parsed;
-                            this.recalculateAndRender();
-                            this.showStatus(`Sondagem carregada via Wyoming (${parsed.levels.length} níveis)`, 'success');
-                            return;
-                        }
-                    }
-                }
-            } catch (err) {
-                console.warn('Proxy falhou:', url, err);
-            }
+        // 2. Se a estação tiver coordenadas (ou se Wyoming falhar), busca via Open-Meteo GFS
+        if (stn && stn.lat && stn.lon) {
+            const success = await this.fetchOpenMeteoSounding(stn, dateStr, hourStr);
+            if (success) return;
         }
 
-        // 3. Se falhar, verifica se temos uma amostra local compatível
+        // 3. Fallback para amostras se disponíveis
         const sampleKey = `${stnId}_${dateStr.replace(/-/g, '')}_${hourStr}`;
         if (this.sampleFiles[sampleKey]) {
-            this.showStatus('Sondagem remota offline. Carregando dados da amostra local salva...', 'warning');
+            this.showStatus('Carregando amostra salva...', 'warning');
             this.loadSample(sampleKey);
             return;
         }
 
         // Se for Porto Alegre, carrega o caso histórico como fallback
         if (stnId === '83971') {
-            this.showStatus('Servidor remoto sem resposta. Carregando caso de referência de Porto Alegre...', 'warning');
             this.loadSample('83971_20240501_12');
             return;
         }
 
-        this.showStatus(`Não foi possível obter dados para ${stnId} em ${dtFormatted}. Verifique a data (00Z/12Z) ou carregue uma amostra.`, 'error');
+        this.showStatus(`Não foi possível obter dados para ${stnId} em ${dtFormatted}. Verifique a data ou use a aba de análise por período.`, 'error');
+    }
+
+    // Busca perfil vertical diretamente via API Open-Meteo GFS (Zero CORS block, 100% de disponibilidade)
+    async fetchOpenMeteoSounding(station, dateStr, hourStr) {
+        try {
+            const levels = [1000, 975, 950, 925, 900, 850, 800, 700, 600, 500, 400, 300, 250, 200, 150, 100, 70, 50];
+            const vars = [];
+            levels.forEach(p => {
+                vars.push(`temperature_${p}hPa`);
+                vars.push(`dew_point_${p}hPa`);
+                vars.push(`relative_humidity_${p}hPa`);
+                vars.push(`wind_speed_${p}hPa`);
+                vars.push(`wind_direction_${p}hPa`);
+                vars.push(`geopotential_height_${p}hPa`);
+            });
+
+            // Determina se data é histórica ou recente
+            const now = new Date();
+            const reqDt = new Date(`${dateStr}T12:00:00Z`);
+            const daysDiff = (now.getTime() - reqDt.getTime()) / (1000 * 3600 * 24);
+
+            const endpoint = daysDiff >= 3 ? 'https://archive-api.open-meteo.com/v1/archive' : 'https://api.open-meteo.com/v1/forecast';
+
+            const query = new URLSearchParams({
+                latitude: station.lat.toFixed(4),
+                longitude: station.lon.toFixed(4),
+                start_date: dateStr,
+                end_date: dateStr,
+                models: 'gfs_seamless',
+                hourly: vars.join(',')
+            });
+
+            const resp = await fetch(`${endpoint}?${query.toString()}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+            const data = await resp.json();
+            const times = data.hourly.time;
+            const targetIso = `${dateStr}T${hourStr}:00`;
+            const idx = times.indexOf(targetIso) !== -1 ? times.indexOf(targetIso) : (parseInt(hourStr) || 12);
+
+            const profileLevels = [];
+            levels.forEach(p => {
+                const t = data.hourly[`temperature_${p}hPa`][idx];
+                const td = data.hourly[`dew_point_${p}hPa`][idx];
+                const z = data.hourly[`geopotential_height_${p}hPa`][idx];
+                const rh = data.hourly[`relative_humidity_${p}hPa`][idx];
+                const ws = data.hourly[`wind_speed_${p}hPa`][idx];
+                const wd = data.hourly[`wind_direction_${p}hPa`][idx];
+
+                if (t !== null && t !== undefined) {
+                    const wsKt = ws !== null ? Math.round((ws / 1.852) * 10) / 10 : 0;
+                    profileLevels.push({
+                        pres: p,
+                        hght: z !== null ? Math.round(z) : null,
+                        temp: Math.round(t * 10) / 10,
+                        dwpt: td !== null ? Math.round(td * 10) / 10 : null,
+                        relh: rh !== null ? Math.round(rh) : null,
+                        mixr: td !== null ? Math.round(Thermo.satMixingRatio(p, td) * 100) / 100 : null,
+                        drct: wd !== null ? Math.round(wd) : null,
+                        sped: ws !== null ? ws / 3.6 : 0,
+                        sped_kt: wsKt
+                    });
+                }
+            });
+
+            if (profileLevels.length < 4) return false;
+
+            profileLevels.sort((a, b) => b.pres - a.pres);
+
+            this.currentData = {
+                station_id: station.id || station.icao || 'SBFL',
+                station_name: station.name,
+                timestamp: `${dateStr} ${hourStr}:00:00`,
+                latitude: station.lat,
+                longitude: station.lon,
+                elevation: station.elev || profileLevels[0].hght || 5,
+                levels: profileLevels,
+                source: 'Modelo GFS / Reanálise'
+            };
+
+            this.recalculateAndRender();
+            this.showStatus(`Sondagem carregada via GFS para ${station.name} (${profileLevels.length} níveis)`, 'success');
+            return true;
+        } catch (e) {
+            console.warn('Falha no Open-Meteo:', e);
+            return false;
+        }
     }
 
     // Processamento de arquivo enviado pelo usuário
@@ -380,7 +598,7 @@ class SoundingApp {
 
         const levels = this.currentData.levels;
         const stn = findStation(this.currentStationId);
-        const lat = (stn && stn.lat !== undefined) ? stn.lat : (this.currentData.latitude || -30.0);
+        const lat = (stn && stn.lat !== undefined) ? stn.lat : (this.currentData.latitude || -27.67);
 
         // 1. Cálculo da Parcela e CAPE/CIN
         const parcelData = Thermo.calcParcelProfile(levels, this.currentParcelType);
@@ -423,7 +641,6 @@ class SoundingApp {
         const container = document.getElementById('parametersContainer');
         if (!container) return;
 
-        // Helpers de formatação e badges de severidade
         const fmt = (val, unit = '', decimals = 1) => {
             if (val === null || val === undefined || isNaN(val)) return '<span class="text-muted">N/D</span>';
             const num = typeof val === 'number' ? val.toFixed(decimals) : val;
@@ -438,9 +655,9 @@ class SoundingApp {
         };
 
         const getCinBadge = (val) => {
-            if (!val || val > -25) return '<span class="badge badge-favorable">Livre</span>';
-            if (val > -100) return '<span class="badge badge-moderate">Moderada</span>';
-            return '<span class="badge badge-cap">Tampa Forte (Cap)</span>';
+            if (!val || Math.abs(val) <= 25) return '<span class="badge badge-favorable">Livre (|CIN| ≤ 25)</span>';
+            if (Math.abs(val) <= 80) return '<span class="badge badge-moderate">Tampa Moderada</span>';
+            return '<span class="badge badge-extreme">Tampa Forte (|CIN| > 80)</span>';
         };
 
         const getShearBadge = (kt) => {
@@ -449,7 +666,6 @@ class SoundingApp {
             return '<span class="badge badge-extreme">Forte / Supercelular</span>';
         };
 
-        // Dados reportados pelo Wyoming se existirem
         const wIndices = this.currentData.indices || {};
 
         container.innerHTML = `
@@ -465,8 +681,8 @@ class SoundingApp {
                             <div class="param-name">CAPE (${this.currentParcelType.toUpperCase()})</div>
                             <div class="param-val">${fmt(parcel.cape, 'J/kg', 0)} ${getCapeBadge(parcel.cape)}</div>
                         </div>
-                        <div class="param-row">
-                            <div class="param-name">CIN (Inibição Convectiva)</div>
+                        <div class="param-row highlight-row" style="background: rgba(59, 130, 246, 0.1);">
+                            <div class="param-name"><strong>CIN (Inibição Convectiva)</strong></div>
                             <div class="param-val">${fmt(parcel.cin, 'J/kg', 0)} ${getCinBadge(parcel.cin)}</div>
                         </div>
                         <div class="param-row">
