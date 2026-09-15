@@ -1,0 +1,15 @@
+[
+  {
+    "id": "83899_20260915_12",
+    "station_id": "83899",
+    "station_name": "Florianópolis / Hercílio Luz (SC)",
+    "datetime": "2026-09-15 12:00:00",
+    "date": "2026-09-15",
+    "hour": "12",
+    "source": "🎈 Wyoming BUFR",
+    "filename": "83899_20260915_12Z_Florianopolis_Wyoming_BUFR.html",
+    "filesize_kb": 312.2,
+    "levels_count": 3951,
+    "downloaded_at": "2026-09-15 22:02:07 UTC"
+  }
+]

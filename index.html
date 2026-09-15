@@ -34,7 +34,7 @@
             <span>📍</span> Foco Sul do Brasil:
         </div>
         <div class="quick-buttons">
-            <button class="btn-quick-station active" data-station="83838">
+            <button class="btn-quick-station active" data-station="83899">
                 Florianópolis <span class="badge-uf">SC • SBFL</span>
             </button>
             <button class="btn-quick-station" data-station="83971">
@@ -86,7 +86,7 @@
             <!-- Seletor de Data -->
             <div class="control-group" style="min-width: 130px;">
                 <label for="inputDate">Data da Sondagem</label>
-                <input type="date" id="inputDate" class="control-input" value="2024-05-01">
+                <input type="date" id="inputDate" class="control-input" value="2026-09-15">
             </div>
 
             <!-- Seletor de Horário Sinótico -->
@@ -167,6 +167,9 @@
             <button class="tab-button active" data-tab="tabDiagrams">📈 Diagramas Skew-T & Hodógrafo</button>
             <button class="tab-button" data-tab="tabPeriod" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #0284c7;">
                 📅 Análise por Período & Filtro de CIN
+            </button>
+            <button class="tab-button" data-tab="tabDownloads" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669;">
+                📂 Arquivos Baixados <span id="downloadsCountBadge" class="badge-count" style="margin-left: 5px; background: #059669; color: white; padding: 1px 6px; border-radius: 10px; font-size: 11px;">0</span>
             </button>
             <button class="tab-button" data-tab="tabTable">📋 Tabela de Níveis Verticais</button>
             <button class="tab-button" data-tab="tabGlossary">📚 Guia de Parâmetros Meteorológicos</button>
@@ -393,6 +396,58 @@
             </div>
         </div>
 
+        <!-- ABA: ARQUIVOS BAIXADOS & CACHE LOCAL -->
+        <div id="tabDownloads" class="tab-content">
+            <div class="period-control-card">
+                <div class="period-header">
+                    <div>
+                        <h2 style="font-size: 16px; margin: 0; color: #34d399; display: flex; align-items: center; gap: 8px;">
+                            <span>📂</span> Histórico de Arquivos Baixados & Cache Local
+                        </h2>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                            Sempre verifica se o arquivo já está em disco ou cache antes de requisitar à internet. Prioriza radiossondagens reais da Universidade de Wyoming (<code style="color:#34d399;">src=BUFR</code>).
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="btnRefreshDownloads" class="btn btn-sm" title="Recarregar lista de arquivos salvos">
+                            🔄 Atualizar Lista
+                        </button>
+                        <button id="btnClearDownloads" class="btn btn-sm" style="color: #f87171;" title="Limpar histórico de cache local">
+                            🗑️ Limpar Cache
+                        </button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 14px; padding: 12px; background: rgba(15, 23, 42, 0.6); border-radius: 6px; border: 1px solid var(--border); font-size: 12px; line-height: 1.5;">
+                    🎈 <strong>Prioridade de Consulta & Cache:</strong> Quando você consulta qualquer estação (como <strong>Florianópolis / SBFL WMO 83899</strong>, Porto Alegre, Curitiba, etc.), o sistema verifica primeiro se o arquivo já foi baixado. Se não estiver baixado, faz o download da radiossondagem real em alta resolução no Wyoming (BUFR) e salva automaticamente na pasta <code>data/downloads/</code>. Você pode reabrir qualquer sondagem instantaneamente ou exportar o arquivo bruto.
+                </div>
+            </div>
+
+            <!-- TABELA DE ARQUIVOS BAIXADOS -->
+            <div class="table-container" style="margin-top: 16px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Data & Hora (UTC)</th>
+                            <th>Estação / WMO ID</th>
+                            <th>Fonte dos Dados</th>
+                            <th>Níveis</th>
+                            <th>Tamanho</th>
+                            <th>Salvo em</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="downloadsTableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                                Carregando lista de arquivos baixados...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- ABA 3: TABELA DE NÍVEIS VERTICAIS -->
         <div id="tabTable" class="tab-content">
             <div class="table-responsive">
@@ -470,6 +525,7 @@
     <script src="assets/js/skewt.js"></script>
     <script src="assets/js/hodograph.js"></script>
     <script src="assets/js/data-parser.js"></script>
+    <script src="assets/js/downloads-manager.js"></script>
     <script src="assets/js/period-analyzer.js"></script>
     <script src="assets/js/app.js"></script>
 </body>

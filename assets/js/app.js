@@ -11,11 +11,11 @@ class SoundingApp {
         this.currentData = null;
         this.currentParcelType = 'surface';
         
-        // Estação inicial padrão: Florianópolis (SC) - SBFL / 83838 ou Porto Alegre (RS)
-        this.currentStationId = '83838'; // SBFL por padrão agora a pedido do usuário!
+        // Estação inicial padrão: Florianópolis (SC) - SBFL / WMO 83899 (Wyoming BUFR Real)
+        this.currentStationId = '83899';
         
-        // Data padrão: 2024-05-01 (ou data recente)
-        this.currentDate = '2024-05-01';
+        // Data padrão: 2026-09-15 12Z
+        this.currentDate = '2026-09-15';
         this.currentHour = '12';
 
         // Mapeamento de arquivos locais pré-carregados
@@ -417,7 +417,8 @@ class SoundingApp {
     }
 
     // -------------------------------------------------------------
-    // BUSCA INTELIGENTE DE SONDAGEM (COM SUPORTE AUTOMÁTICO A SBFL)
+    // -------------------------------------------------------------
+    // BUSCA DE SONDAGEM COM CACHE-FIRST E PRIORIDADE WYOMING BUFR
     // -------------------------------------------------------------
     async fetchSounding() {
         const dateInput = document.getElementById('inputDate');
@@ -428,55 +429,128 @@ class SoundingApp {
         const dateStr = dateInput ? dateInput.value : this.currentDate;
         const hourStr = hourInput ? hourInput.value : this.currentHour;
         const dtFormatted = `${dateStr} ${hourStr}:00:00`;
+        const wyomingId = getWyomingStationId(stnId);
 
-        this.showStatus(`Buscando sondagem ${stnId} para ${dtFormatted}...`, 'loading');
+        this.showStatus(`Verificando cache e buscando sondagem ${stnId} (${wyomingId}) para ${dtFormatted}...`, 'loading');
 
-        // Se for Florianópolis (SBFL / 83838), esta estação não tem balão operacional no Wyoming!
-        // Busca DIRETAMENTE via modelo vertical GFS/Open-Meteo para garantia total de sucesso!
-        if (stnId === '83838' || stnId === 'SBFL' || (stn && stn.icao === 'SBFL')) {
-            await this.fetchOpenMeteoSounding(stn || { lat: -27.67, lon: -48.55, name: 'Florianópolis / Hercílio Luz (SC)' }, dateStr, hourStr);
-            return;
-        }
-
-        // 1. Tenta via backend Python local (/api/sounding) se estiver ativo
+        // =============================================================
+        // PASSO 1: SEMPRE VERIFICAR SE O ARQUIVO JÁ ESTÁ BAIXADO EM CACHE
+        // =============================================================
         try {
-            const localApiUrl = `/api/sounding?id=${encodeURIComponent(stnId)}&datetime=${encodeURIComponent(dtFormatted)}`;
-            const localResp = await fetch(localApiUrl, { signal: AbortSignal.timeout(5000) });
-            if (localResp.ok) {
-                const text = await localResp.text();
-                const parsed = DataParser.parse(text, { station_id: stnId, timestamp: dtFormatted });
+            const cached = await window.downloadsManager?.checkCache(wyomingId, dtFormatted);
+            if (cached && cached.content) {
+                const parsed = DataParser.parse(cached.content, {
+                    station_id: stnId,
+                    station_name: stn ? stn.name : `Estação ${stnId}`,
+                    timestamp: dtFormatted
+                });
+
                 if (parsed && parsed.levels.length > 3) {
                     this.currentData = parsed;
                     this.recalculateAndRender();
-                    this.showStatus(`Sondagem carregada com sucesso (${parsed.levels.length} níveis)`, 'success');
+                    const cacheType = cached.source === 'cache_disk' ? '💾 Arquivo em Disco' : '⚡ Cache Local';
+                    this.showStatus(`[${cacheType}] Sondagem já baixada carregada instantaneamente (${parsed.levels.length} níveis)`, 'success');
+                    return;
+                }
+            }
+        } catch (err) {
+            console.warn('Erro ao verificar cache local:', err);
+        }
+
+        // =============================================================
+        // PASSO 2: PRIORIZAR SONDAGEM REAL NA UNIV. OF WYOMING (src=BUFR)
+        // =============================================================
+        // 2A. Via backend Python local (/api/sounding) - já verifica disco e faz fetch Wyoming BUFR com timeout adequado
+        try {
+            const localApiUrl = `/api/sounding?id=${encodeURIComponent(wyomingId)}&datetime=${encodeURIComponent(dtFormatted)}`;
+            const localResp = await fetch(localApiUrl, { signal: AbortSignal.timeout(28000) });
+            if (localResp.ok) {
+                const text = await localResp.text();
+                const isCacheHit = localResp.headers.get('X-Sounding-Cache') === 'HIT';
+                const sourceTag = localResp.headers.get('X-Sounding-Source') || (text.includes('BUFR') ? 'Wyoming Real BUFR' : 'Wyoming Real');
+                
+                const parsed = DataParser.parse(text, {
+                    station_id: stnId,
+                    station_name: stn ? stn.name : `Estação ${stnId}`,
+                    timestamp: dtFormatted
+                });
+
+                if (parsed && parsed.levels.length > 3) {
+                    this.currentData = parsed;
+                    this.recalculateAndRender();
+
+                    // Salva no gerenciador de downloads para atualizar contador e tabela
+                    window.downloadsManager?.saveSounding(stnId, stn?.name, dtFormatted, text, isCacheHit ? 'Arquivo Local Baixado' : sourceTag);
+
+                    const hitMsg = isCacheHit ? '⚡ Carregado do arquivo salvo em data/downloads/' : `🎈 Sondagem real baixada da Univ. of Wyoming (${sourceTag})`;
+                    this.showStatus(`${hitMsg} (${parsed.levels.length} níveis)`, 'success');
                     return;
                 }
             }
         } catch (e) {
-            // Continua para o próximo método
+            console.log('Backend local não respondeu ou demorou. Tentando métodos alternativos...', e);
         }
 
-        // 2. Se a estação tiver coordenadas (ou se Wyoming falhar), busca via Open-Meteo GFS
+        // 2B. Requisição direta cliente ao Wyoming (se hospedado no mesmo domínio ou via proxy)
+        try {
+            const wyomingBUFRUrl = `https://weather.uwyo.edu/wsgi/sounding?datetime=${encodeURIComponent(dtFormatted)}&id=${encodeURIComponent(wyomingId)}&src=BUFR&type=TEXT:LIST`;
+            const wyomingResp = await fetch(wyomingBUFRUrl, { signal: AbortSignal.timeout(12000) });
+            if (wyomingResp.ok) {
+                const text = await wyomingResp.text();
+                if (text.includes('PRES')) {
+                    const parsed = DataParser.parse(text, {
+                        station_id: stnId,
+                        station_name: stn ? stn.name : `Estação ${stnId}`,
+                        timestamp: dtFormatted
+                    });
+                    if (parsed && parsed.levels.length > 3) {
+                        this.currentData = parsed;
+                        this.recalculateAndRender();
+                        window.downloadsManager?.saveSounding(stnId, stn?.name, dtFormatted, text, 'Wyoming Real BUFR');
+                        this.showStatus(`🎈 Sondagem real baixada diretamente da Univ. of Wyoming BUFR (${parsed.levels.length} níveis)`, 'success');
+                        return;
+                    }
+                }
+            }
+        } catch (e) {
+            // Wyoming bloqueado por CORS ou indisponível no cliente
+        }
+
+        // =============================================================
+        // PASSO 3: FALLBACK MODELO GFS / REANÁLISE (QUANDO NÃO HOUVER BALÃO REAL)
+        // =============================================================
         if (stn && stn.lat && stn.lon) {
             const success = await this.fetchOpenMeteoSounding(stn, dateStr, hourStr);
-            if (success) return;
+            if (success) {
+                // Registra no download manager
+                window.downloadsManager?.saveSounding(
+                    stnId, 
+                    stn.name, 
+                    dtFormatted, 
+                    `<!-- Modelo GFS Open-Meteo para ${stn.name} em ${dtFormatted} -->\nPRES   HGHT   TEMP   DWPT   RELH   MIXR   DRCT   SPED\nhPa     m      C      C      %     g/kg    deg    knot\n----------------------------------------------------\n` +
+                    this.currentData.levels.map(l => `${String(l.pres).padStart(7)} ${String(l.hght||'').padStart(6)} ${String(l.temp||'').padStart(6)} ${String(l.dwpt||'').padStart(6)} ${String(l.relh||'').padStart(6)} ${String(l.mixr||'').padStart(6)} ${String(l.drct||'').padStart(6)} ${String(l.sped_kt||'').padStart(7)}`).join('\n'),
+                    'Modelo GFS Reanálise'
+                );
+                return;
+            }
         }
 
-        // 3. Fallback para amostras se disponíveis
+        // =============================================================
+        // PASSO 4: FALLBACK PARA AMOSTRAS SALVAS
+        // =============================================================
         const sampleKey = `${stnId}_${dateStr.replace(/-/g, '')}_${hourStr}`;
         if (this.sampleFiles[sampleKey]) {
-            this.showStatus('Carregando amostra salva...', 'warning');
+            this.showStatus('Carregando amostra salva de referência...', 'warning');
             this.loadSample(sampleKey);
             return;
         }
 
-        // Se for Porto Alegre, carrega o caso histórico como fallback
-        if (stnId === '83971') {
+        if (stnId === '83971' || wyomingId === '83971') {
             this.loadSample('83971_20240501_12');
             return;
         }
 
-        this.showStatus(`Não foi possível obter dados para ${stnId} em ${dtFormatted}. Verifique a data ou use a aba de análise por período.`, 'error');
+        this.showStatus(`Nenhuma sondagem disponível para ${stnId} em ${dtFormatted}. Verifique a data ou utilize a aba Análise por Período.`, 'error');
     }
 
     // Busca perfil vertical diretamente via API Open-Meteo GFS (Zero CORS block, 100% de disponibilidade)

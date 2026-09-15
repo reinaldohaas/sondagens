@@ -286,7 +286,12 @@ const Thermo = {
             cape: Math.max(0, Math.round(cape)),
             cin: Math.min(0, Math.round(cin)),
             lfc: lfc,
-            el: el
+            el: el,
+            lcl: parcelData ? {
+                pres: Math.round(parcelData.pLcl * 10) / 10,
+                temp: Math.round(parcelData.tLcl * 10) / 10,
+                hght: Math.round(parcelData.zLcl)
+            } : null
         };
     },
 
@@ -379,7 +384,7 @@ const Thermo = {
             const dp = p1.pres - p2.pres;
             if (dp > 0) {
                 const avgW = 0.5 * ((p1.mixr || 0) + (p2.mixr || 0)); // g/kg
-                pwat += (avgW * dp) / (this.g * 1.0); // mm aproximado
+                pwat += (avgW * dp) / (this.g * 10.0); // mm exato (1 kg/m² = 1 mm)
             }
         }
         pwat = Math.round(pwat * 10) / 10;

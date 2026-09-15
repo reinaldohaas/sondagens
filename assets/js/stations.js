@@ -100,17 +100,18 @@ const STATIONS_CATALOG = {
             desc: 'Litoral Sul Gaúcho e bacia da Lagoa dos Patos. Impacto de ciclones extratropicais e frentes frias.'
         },
         {
-            id: '83838',
+            id: '83899',
             icao: 'SBFL',
+            aliases: ['83838', 'SBFL', 'FLN'],
             name: 'Florianópolis / Hercílio Luz',
             state: 'SC',
             region: 'Sul do Brasil',
             country: 'Brasil',
-            lat: -27.67,
-            lon: -48.55,
+            lat: -27.667,
+            lon: -48.541,
             elev: 5,
-            badge: 'Litoral SC',
-            desc: 'Litoral de Santa Catarina. Circulação marítima, brisas marinhas e ciclogêneses na costa sul brasileira.'
+            badge: 'Prioridade • BUFR Real',
+            desc: 'Aeroporto Internacional Hercílio Luz. Radiossondagens reais de alta resolução BUFR da Universidade de Wyoming (WMO 83899).'
         },
         {
             id: '83788',
@@ -538,14 +539,36 @@ function findStation(query) {
     const q = String(query).trim().toUpperCase();
     const all = getAllStations();
     
-    // Busca exata por ID WMO ou ICAO
-    const exact = all.find(s => s.id === q || s.icao === q);
+    // 1. Busca exata por ID WMO, ICAO ou aliases
+    const exact = all.find(s => 
+        s.id === q || 
+        s.icao === q || 
+        (s.aliases && s.aliases.some(a => a.toUpperCase() === q))
+    );
     if (exact) return exact;
 
-    // Busca parcial por nome ou estado
+    // 2. Busca parcial por nome ou estado
     return all.find(s => 
         s.name.toUpperCase().includes(q) || 
         (s.state && s.state.toUpperCase() === q) ||
         s.country.toUpperCase().includes(q)
     ) || null;
+}
+
+// Retorna o ID WMO correto para consulta na Universidade de Wyoming
+function getWyomingStationId(query) {
+    const stn = findStation(query);
+    if (stn) {
+        return stn.id;
+    }
+    const q = String(query).trim().toUpperCase();
+    // Mapeamentos diretos conhecidos
+    if (q === 'SBFL' || q === '83838') return '83899';
+    if (q === 'SBPA') return '83971';
+    if (q === 'SBCT') return '83840';
+    if (q === 'SBSM') return '83936';
+    if (q === 'SBFI') return '83827';
+    if (q === 'SBMT') return '83779';
+    if (q === 'SBGL') return '83746';
+    return q;
 }
