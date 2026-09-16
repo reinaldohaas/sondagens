@@ -1,5 +1,31 @@
 [
   {
+    "id": "83899_2026-09-15_000000",
+    "station_id": "83899",
+    "station_name": "Florianópolis / Hercílio Luz (SC)",
+    "datetime": "2026-09-15 00:00:00",
+    "date": "2026-09-15",
+    "hour": "00",
+    "source": "🎈 Wyoming Real BUFR",
+    "filename": "83899_20260915_00Z_Florianpolis_Wyoming_Real_BUFR.html",
+    "filesize_kb": 14.3,
+    "levels_count": 84,
+    "downloaded_at": "2026-09-16 12:05:22 UTC"
+  },
+  {
+    "id": "83899_20260915_00",
+    "station_id": "83899",
+    "station_name": "Florianópolis / Hercílio Luz (SC)",
+    "datetime": "2026-09-15 00:00:00",
+    "date": "2026-09-15",
+    "hour": "00",
+    "source": "🎈 Wyoming Real BUFR",
+    "filename": "83899_20260915_00Z_Florianpolis_Wyoming_Real_BUFR.html",
+    "filesize_kb": 14.3,
+    "levels_count": 84,
+    "downloaded_at": "2026-09-16 12:05:22 UTC"
+  },
+  {
     "id": "83899_20260915_12",
     "station_id": "83899",
     "station_name": "Florianópolis / Hercílio Luz (SC)",

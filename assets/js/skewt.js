@@ -202,42 +202,48 @@ class SkewTChart {
     }
 
     // -------------------------------------------------------------
+    // -------------------------------------------------------------
     // DESENHO DAS LINHAS DE REFERÊNCIA TERMODINÂMICAS
     // -------------------------------------------------------------
     drawIsobars(ctx) {
         const standardPressures = [1000, 925, 850, 700, 500, 400, 300, 250, 200, 150, 100];
-        ctx.strokeStyle = '#1e293b'; // slate-800
-        ctx.lineWidth = 1;
-
         standardPressures.forEach(p => {
             const y = this.yFromPres(p);
             ctx.beginPath();
             ctx.moveTo(this.margins.left, y);
             ctx.lineTo(this.margins.left + this.plotWidth, y);
-            ctx.stroke();
 
-            // Linhas secundárias mais finas
-            if (p === 850 || p === 700 || p === 500 || p === 300 || p === 200) {
-                ctx.strokeStyle = '#334155'; // slate-700
-                ctx.lineWidth = 1.2;
-                ctx.stroke();
-                ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 1;
+            // Níveis sinóticos mandatórios ganham traço um pouco mais visível
+            if (p === 1000 || p === 850 || p === 700 || p === 500 || p === 300 || p === 200) {
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)'; // Slate-400 com boa visibilidade
+                ctx.lineWidth = 1.1;
+            } else {
+                ctx.strokeStyle = 'rgba(71, 85, 105, 0.28)'; // Slate-600 secundário
+                ctx.lineWidth = 0.8;
             }
+            ctx.stroke();
         });
     }
 
     drawIsotherms(ctx) {
+        // Isotermas inclinadas a 45° a cada 10°C de -80°C a +60°C
         for (let t = -80; t <= 60; t += 10) {
             ctx.beginPath();
             if (t === 0) {
-                ctx.strokeStyle = '#06b6d4'; // Ciano brilhante para a isoterma de 0°C
-                ctx.lineWidth = 1.8;
+                // Isoterma de 0°C (Nível de Congelamento) - Destaque em Ciano Brilhante
+                ctx.strokeStyle = '#06b6d4';
+                ctx.lineWidth = 1.6;
                 ctx.setLineDash([]);
+            } else if (t === -20) {
+                // Isoterma de -20°C (Zona de crescimento de cristais de gelo / dendritos / granizo)
+                ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)'; // Roxo suave
+                ctx.lineWidth = 1.2;
+                ctx.setLineDash([4, 3]);
             } else {
-                ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 1;
-                ctx.setLineDash([3, 3]);
+                // Demais isotermas inclinadas a 45° (visíveis em cinza-azulado com traço fino)
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.28)';
+                ctx.lineWidth = 0.9;
+                ctx.setLineDash([4, 4]);
             }
 
             const p1 = this.pMax;
@@ -250,44 +256,78 @@ class SkewTChart {
             ctx.moveTo(x1, y1);
             ctx.lineTo(x2, y2);
             ctx.stroke();
+
+            // Rótulo na isoterma de 0°C para identificação imediata
+            if (t === 0) {
+                ctx.save();
+                ctx.fillStyle = '#06b6d4';
+                ctx.font = 'bold 10px Inter, system-ui, sans-serif';
+                ctx.textAlign = 'left';
+                // Perto do meio da linha (em ~600 hPa)
+                const yMid = this.yFromPres(600);
+                const xMid = this.xFromTempPres(0, 600);
+                if (xMid >= this.margins.left && xMid <= this.margins.left + this.plotWidth - 40) {
+                    ctx.fillText('0°C (Isoterma)', xMid + 6, yMid - 4);
+                }
+                ctx.restore();
+            }
         }
         ctx.setLineDash([]);
     }
 
     drawDryAdiabats(ctx) {
-        ctx.strokeStyle = 'rgba(217, 119, 6, 0.25)'; // Âmbar sutil
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
+        // Adiabáticas Secas (Temperatura Potencial constante Theta) - Âmbar clássico
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.42)';
+        ctx.lineWidth = 1.1;
+        ctx.setLineDash([5, 4]);
 
-        for (let theta = 250; theta <= 440; theta += 15) {
+        for (let theta = 240; theta <= 440; theta += 15) {
             ctx.beginPath();
             let started = false;
+            let labelPoint = null;
+
             for (let p = this.pMax; p >= this.pMin; p -= 20) {
                 const t = Thermo.tempFromTheta(p, theta);
                 const x = this.xFromTempPres(t, p);
                 const y = this.yFromPres(p);
+
                 if (!started) {
                     ctx.moveTo(x, y);
                     started = true;
+                    if (p >= 1000 && x >= this.margins.left && x <= this.margins.left + this.plotWidth - 20) {
+                        labelPoint = { x, y, theta };
+                    }
                 } else {
                     ctx.lineTo(x, y);
                 }
             }
             ctx.stroke();
+
+            // Rótulo em Kelvin da adiabática seca (θ)
+            if (labelPoint && theta % 30 === 0) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(245, 158, 11, 0.75)';
+                ctx.font = '9px Inter, system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${labelPoint.theta}K`, labelPoint.x, labelPoint.y - 4);
+                ctx.restore();
+            }
         }
         ctx.setLineDash([]);
     }
 
     drawMoistAdiabats(ctx) {
-        ctx.strokeStyle = 'rgba(16, 185, 129, 0.22)'; // Verde esmeralda suave
-        ctx.lineWidth = 1;
+        // Pseudo-Adiabáticas Úmidas (Saturadas) - Verde esmeralda clássico
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.40)';
+        ctx.lineWidth = 1.1;
         ctx.setLineDash([3, 3]);
 
-        for (let tw = -10; tw <= 36; tw += 4) {
+        for (let tw = -12; tw <= 36; tw += 4) {
             ctx.beginPath();
             let pStart = 1000.0;
             let t = tw;
             let started = false;
+            let labelPoint = null;
 
             for (let p = pStart; p >= 150; p -= 25) {
                 const x = this.xFromTempPres(t, p);
@@ -295,26 +335,42 @@ class SkewTChart {
                 if (!started) {
                     ctx.moveTo(x, y);
                     started = true;
+                    if (x >= this.margins.left && x <= this.margins.left + this.plotWidth - 20) {
+                        labelPoint = { x, y, tw };
+                    }
                 } else {
                     ctx.lineTo(x, y);
                 }
                 t = Thermo.liftParcelMoist(p, t, p - 25);
             }
             ctx.stroke();
+
+            // Rótulo da pseudo-adiabática úmida (°C de saturação em 1000 hPa)
+            if (labelPoint && (labelPoint.tw === 8 || labelPoint.tw === 16 || labelPoint.tw === 24)) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.8)';
+                ctx.font = '9px Inter, system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${labelPoint.tw}°C`, labelPoint.x, labelPoint.y - 4);
+                ctx.restore();
+            }
         }
         ctx.setLineDash([]);
     }
 
     drawMixingRatioLines(ctx) {
-        const mrValues = [0.5, 1, 2, 4, 8, 12, 16, 20];
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.18)'; // Cinza sutil
-        ctx.lineWidth = 0.9;
+        // Linhas de Razão de Mistura Saturada (g/kg) - Cinza-esverdeado tracejado
+        const mrValues = [1, 2, 4, 7, 10, 14, 20];
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+        ctx.lineWidth = 1.0;
         ctx.setLineDash([2, 4]);
 
         mrValues.forEach(w => {
             ctx.beginPath();
             let started = false;
-            for (let p = this.pMax; p >= 400; p -= 30) {
+            let labelPoint = null;
+
+            for (let p = this.pMax; p >= 500; p -= 30) {
                 const vp = Thermo.vaporPressureFromMr(p, w);
                 const td = Thermo.dewpointFromVp(vp);
                 const x = this.xFromTempPres(td, p);
@@ -322,11 +378,24 @@ class SkewTChart {
                 if (!started) {
                     ctx.moveTo(x, y);
                     started = true;
+                    if (x >= this.margins.left + 5 && x <= this.margins.left + this.plotWidth - 10) {
+                        labelPoint = { x, y, w };
+                    }
                 } else {
                     ctx.lineTo(x, y);
                 }
             }
             ctx.stroke();
+
+            // Rótulo numérico de razão de mistura (g/kg)
+            if (labelPoint) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
+                ctx.font = '8.5px Inter, system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${labelPoint.w}`, labelPoint.x, labelPoint.y + 11);
+                ctx.restore();
+            }
         });
         ctx.setLineDash([]);
     }
@@ -591,20 +660,31 @@ class SkewTChart {
         ctx.fillText('Pressão (hPa)', 0, 0);
         ctx.restore();
 
-        // Rótulos de Temperatura (Eixo X inferior)
+        // Rótulos de Temperatura (Eixo X inferior - 1000 hPa)
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        for (let t = -40; t <= 40; t += 10) {
+        for (let t = -50; t <= 50; t += 10) {
             const x = this.xFromTempPres(t, this.pMax);
             if (x >= this.margins.left && x <= this.margins.left + this.plotWidth) {
-                ctx.fillStyle = t === 0 ? '#06b6d4' : '#94a3b8';
+                ctx.fillStyle = t === 0 ? '#06b6d4' : (t === -20 ? '#a855f7' : '#94a3b8');
                 ctx.fillText(`${t}°`, x, this.margins.top + this.plotHeight + 8);
+            }
+        }
+
+        // Rótulos de Temperatura (Eixo X superior - 100 hPa)
+        ctx.textBaseline = 'bottom';
+        for (let t = -90; t <= 10; t += 10) {
+            const x = this.xFromTempPres(t, this.pMin);
+            if (x >= this.margins.left + 15 && x <= this.margins.left + this.plotWidth - 10) {
+                ctx.fillStyle = t === 0 ? '#06b6d4' : (t === -20 ? '#a855f7' : 'rgba(148, 163, 184, 0.7)');
+                ctx.fillText(`${t}°`, x, this.margins.top - 4);
             }
         }
 
         // Título Eixo X
         ctx.font = 'bold 11px Inter, system-ui, sans-serif';
         ctx.fillStyle = '#64748b';
+        ctx.textBaseline = 'top';
         ctx.fillText('Temperatura (°C)', this.margins.left + this.plotWidth / 2, this.margins.top + this.plotHeight + 26);
 
         // Título da Coluna de Vento
@@ -615,27 +695,55 @@ class SkewTChart {
         ctx.fillStyle = '#64748b';
         ctx.fillText('(kt)', this.margins.left + this.plotWidth + 35, this.margins.top - 2);
 
-        // Legenda no canto superior esquerdo
+        // Legenda no canto superior esquerdo (Linha 1: Perfis observados)
         ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
         ctx.font = '10px Inter, system-ui, sans-serif';
         
         // T (Vermelho)
         ctx.fillStyle = '#ef4444';
         ctx.fillRect(this.margins.left + 12, this.margins.top + 10, 14, 3);
         ctx.fillStyle = '#f87171';
-        ctx.fillText('Temperatura (T)', this.margins.left + 32, this.margins.top + 13);
+        ctx.fillText('T (Temp)', this.margins.left + 30, this.margins.top + 11);
 
         // Td (Verde)
         ctx.fillStyle = '#10b981';
-        ctx.fillRect(this.margins.left + 130, this.margins.top + 10, 14, 3);
+        ctx.fillRect(this.margins.left + 90, this.margins.top + 10, 14, 3);
         ctx.fillStyle = '#34d399';
-        ctx.fillText('Ponto de Orvalho (Td)', this.margins.left + 150, this.margins.top + 13);
+        ctx.fillText('Td (Orvalho)', this.margins.left + 108, this.margins.top + 11);
 
         // Parcela (Âmbar)
         ctx.fillStyle = '#f59e0b';
-        ctx.fillRect(this.margins.left + 280, this.margins.top + 10, 14, 3);
+        ctx.fillRect(this.margins.left + 185, this.margins.top + 10, 14, 3);
         ctx.fillStyle = '#fbbf24';
-        ctx.fillText('Parcela Ascendente', this.margins.left + 300, this.margins.top + 13);
+        ctx.fillText('Parcela', this.margins.left + 203, this.margins.top + 11);
+
+        // 0°C (Ciano sólido)
+        ctx.fillStyle = '#06b6d4';
+        ctx.fillRect(this.margins.left + 260, this.margins.top + 10, 14, 2);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText('0°C Isoterma', this.margins.left + 278, this.margins.top + 11);
+
+        // Linha 2 de Legenda: Linhas de Referência Termodinâmicas
+        ctx.font = '9px Inter, system-ui, sans-serif';
+
+        // Adiabáticas Secas (θ)
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(this.margins.left + 12, this.margins.top + 26, 12, 1.5);
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.85)';
+        ctx.fillText('θ Seca (K)', this.margins.left + 28, this.margins.top + 27);
+
+        // Adiabáticas Úmidas (θw)
+        ctx.fillStyle = '#10b981';
+        ctx.fillRect(this.margins.left + 90, this.margins.top + 26, 12, 1.5);
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.85)';
+        ctx.fillText('θw Úmida (°C)', this.margins.left + 106, this.margins.top + 27);
+
+        // Razão de Mistura (ws)
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(this.margins.left + 185, this.margins.top + 26, 12, 1.5);
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.85)';
+        ctx.fillText('ws Mistura (g/kg)', this.margins.left + 201, this.margins.top + 27);
     }
 
     // -------------------------------------------------------------

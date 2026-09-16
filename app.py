@@ -359,10 +359,22 @@ class SoundingRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # -------------------------------------------------------------
-        # PASSO 3: FALLBACK MODELO GFS (SE A SONDAGEM REAL NÃO EXISTIR)
+        # PASSO 3: SONDAGEM REAL NÃO ENCONTRADA NA WYOMING
         # -------------------------------------------------------------
-        print(f"⚠️ [MODELO] Sem sondagem física na Wyoming. Gerando perfil vertical GFS Open-Meteo...")
-        self.fetch_and_save_openmeteo(stn_id, stn_name, dt_val, date_clean, hour_clean)
+        # NÃO inventa nem gera perfis sintéticos silenciosamente!
+        print(f"⚠️ [AVISO] Sondagem física NÃO disponível na Univ. of Wyoming para {stn_id} ({stn_name}) em {dt_val}.")
+        self.send_response(404)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        err_payload = {
+            'error': f'Sondagem real não disponível na Universidade de Wyoming para {stn_name} (WMO {stn_id}) em {dt_val}. Nenhum balão meteorológico registrado neste horário.',
+            'station_id': stn_id,
+            'station_name': stn_name,
+            'datetime': dt_val,
+            'available': False
+        }
+        self.wfile.write(json.dumps(err_payload, ensure_ascii=False).encode('utf-8'))
 
     def fetch_and_save_openmeteo(self, stn_id, stn_name, dt_val, date_clean, hour_clean):
         coords = {'lat': -27.667, 'lon': -48.541} # Padrão Florianópolis

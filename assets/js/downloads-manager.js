@@ -55,7 +55,9 @@ class DownloadsManager {
         localItems.forEach(item => map.set(item.id, item));
         backendItems.forEach(item => map.set(item.id, item));
 
-        this.downloads = Array.from(map.values());
+        this.downloads = Array.from(map.values()).filter(it => 
+            !it.filename?.includes('Modelo_GFS') && !it.source?.includes('Modelo GFS')
+        );
         // Ordena pelos mais recentes
         this.downloads.sort((a, b) => (b.datetime || '').localeCompare(a.datetime || ''));
 

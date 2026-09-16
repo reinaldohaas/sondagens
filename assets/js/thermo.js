@@ -199,63 +199,77 @@ const Thermo = {
         };
     },
 
-    // Cálculo exato de CAPE, CIN, LFC, EL
+    // Cálculo exato e rigoroso de CAPE, CIN, LFC, EL (Definições Meteorológicas AMS / MetPy / SPC)
     calcCapeCin(parcelData) {
         if (!parcelData || !parcelData.trajectory || parcelData.trajectory.length === 0) {
             return { cape: 0, cin: 0, lfc: null, el: null };
         }
 
         const traj = parcelData.trajectory;
-        let lfc = null;
-        let el = null;
-        let cape = 0;
-        let cin = 0;
+        const pLcl = parcelData.pLcl;
+        const pSfc = parcelData.pSfc || traj[0].pres;
 
-        // Procura LFC (primeiro cruzamento com empuxo positivo acima do LCL)
+        let lfc = null;
+        let lfcIdx = -1;
+
+        // 1. Procura o Nível de Convecção Livre (LFC) acima do LCL
+        // O LFC é o nível onde a parcela entra em empuxo positivo consistente
         for (let i = 0; i < traj.length - 1; i++) {
             const cur = traj[i];
-            const nxt = traj[i + 1];
-
-            if (cur.pres <= parcelData.pLcl) {
-                if (cur.buoyancy <= 0 && nxt.buoyancy > 0) {
-                    // Interpola pressão do LFC
-                    const frac = (0 - cur.buoyancy) / (nxt.buoyancy - cur.buoyancy);
-                    const pInterp = cur.pres + frac * (nxt.pres - cur.pres);
-                    const zInterp = cur.hght + frac * (nxt.hght - cur.hght);
-                    lfc = { pres: Math.round(pInterp * 10) / 10, hght: Math.round(zInterp) };
-                    break;
-                } else if (cur.buoyancy > 0 && !lfc) {
-                    lfc = { pres: cur.pres, hght: cur.hght };
-                    break;
-                }
-            }
-        }
-
-        // Procura EL (nível onde a parcela volta a ser mais fria que o ambiente acima do LFC)
-        if (lfc) {
-            let passedLfc = false;
-            for (let i = 0; i < traj.length - 1; i++) {
-                const cur = traj[i];
-                const nxt = traj[i + 1];
-
-                if (cur.pres <= lfc.pres) {
-                    passedLfc = true;
-                }
-
-                if (passedLfc) {
-                    if (cur.buoyancy >= 0 && nxt.buoyancy < 0) {
-                        const frac = (0 - cur.buoyancy) / (nxt.buoyancy - cur.buoyancy);
-                        const pInterp = cur.pres + frac * (nxt.pres - cur.pres);
-                        const zInterp = cur.hght + frac * (nxt.hght - cur.hght);
-                        el = { pres: Math.round(pInterp * 10) / 10, hght: Math.round(zInterp) };
+            if (cur.pres <= pLcl + 1.0) {
+                if (cur.buoyancy > 0) {
+                    // Validação de camada sustentada para evitar falsos LFCs por ruído de 0.01°C
+                    let posCount = 0;
+                    for (let j = i; j < Math.min(traj.length, i + 8); j++) {
+                        if (traj[j].buoyancy > 0) posCount++;
+                    }
+                    if (posCount >= 3 || cur.buoyancy >= 0.15) {
+                        lfc = { pres: cur.pres, hght: cur.hght };
+                        lfcIdx = i;
                         break;
                     }
                 }
             }
         }
 
-        // Integração de CAPE e CIN
-        for (let i = 0; i < traj.length - 1; i++) {
+        // Se NÃO há LFC: a atmosfera é estável. Por definição rigorosa da AMS e MetPy,
+        // CAPE = 0 J/kg e CIN = 0 J/kg (não há liberação convectiva).
+        if (!lfc || lfcIdx === -1) {
+            return {
+                cape: 0,
+                cin: 0,
+                lfc: null,
+                el: null,
+                lcl: {
+                    pres: Math.round(parcelData.pLcl * 10) / 10,
+                    temp: Math.round(parcelData.tLcl * 10) / 10,
+                    hght: Math.round(parcelData.zLcl)
+                }
+            };
+        }
+
+        // 2. Procura o Nível de Equilíbrio (EL) acima do LFC
+        // O EL é o topo da nuvem convectiva onde a parcela volta a ser mais fria que o ambiente
+        let el = null;
+        let elIdx = -1;
+
+        for (let i = traj.length - 1; i > lfcIdx; i--) {
+            if (traj[i].buoyancy >= 0) {
+                el = { pres: traj[i].pres, hght: traj[i].hght };
+                elIdx = i;
+                break;
+            }
+        }
+
+        if (!el || elIdx <= lfcIdx) {
+            el = { pres: traj[traj.length - 1].pres, hght: traj[traj.length - 1].hght };
+            elIdx = traj.length - 1;
+        }
+
+        // 3. Integração de CIN (Inibição Convectiva):
+        // ESTRITAMENTE entre o nível inicial da parcela (superfície) e o LFC!
+        let cin = 0;
+        for (let i = 0; i < lfcIdx; i++) {
             const p1 = traj[i];
             const p2 = traj[i + 1];
             if (p1.hght === null || p2.hght === null) continue;
@@ -265,20 +279,29 @@ const Thermo = {
 
             const avgBuoy = 0.5 * (p1.buoyancy + p2.buoyancy);
             const avgTEnvK = this.c2k(0.5 * (p1.tEnv + p2.tEnv));
-            const deltaE = this.g * (avgBuoy / avgTEnvK) * dz;
+
+            // Apenas flutuabilidade negativa abaixo do LFC entra no cálculo de CIN
+            if (avgBuoy < 0 && p1.pres <= pSfc + 2.0 && p1.pres >= lfc.pres - 2.0) {
+                cin += this.g * (avgBuoy / avgTEnvK) * dz;
+            }
+        }
+
+        // 4. Integração de CAPE (Energia Potencial Convectiva Disponível):
+        // ESTRITAMENTE entre o LFC e o EL!
+        let cape = 0;
+        for (let i = lfcIdx; i <= elIdx && i < traj.length - 1; i++) {
+            const p1 = traj[i];
+            const p2 = traj[i + 1];
+            if (p1.hght === null || p2.hght === null) continue;
+
+            const dz = Math.abs(p2.hght - p1.hght);
+            if (dz <= 0) continue;
+
+            const avgBuoy = 0.5 * (p1.buoyancy + p2.buoyancy);
+            const avgTEnvK = this.c2k(0.5 * (p1.tEnv + p2.tEnv));
 
             if (avgBuoy > 0) {
-                // Acima do LFC contribui para CAPE
-                if (lfc && p1.pres <= lfc.pres + 5) {
-                    if (!el || p1.pres >= el.pres - 5) {
-                        cape += deltaE;
-                    }
-                }
-            } else {
-                // Abaixo do LFC contribui para CIN
-                if (!lfc || p1.pres >= lfc.pres) {
-                    cin += deltaE; // deltaE é negativo
-                }
+                cape += this.g * (avgBuoy / avgTEnvK) * dz;
             }
         }
 
@@ -287,11 +310,11 @@ const Thermo = {
             cin: Math.min(0, Math.round(cin)),
             lfc: lfc,
             el: el,
-            lcl: parcelData ? {
+            lcl: {
                 pres: Math.round(parcelData.pLcl * 10) / 10,
                 temp: Math.round(parcelData.tLcl * 10) / 10,
                 hght: Math.round(parcelData.zLcl)
-            } : null
+            }
         };
     },
 

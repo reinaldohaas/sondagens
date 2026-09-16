@@ -517,40 +517,11 @@ class SoundingApp {
         }
 
         // =============================================================
-        // PASSO 3: FALLBACK MODELO GFS / REANÁLISE (QUANDO NÃO HOUVER BALÃO REAL)
+        // PASSO 3: SONDAGEM REAL NÃO DISPONÍVEL NA WYOMING
         // =============================================================
-        if (stn && stn.lat && stn.lon) {
-            const success = await this.fetchOpenMeteoSounding(stn, dateStr, hourStr);
-            if (success) {
-                // Registra no download manager
-                window.downloadsManager?.saveSounding(
-                    stnId, 
-                    stn.name, 
-                    dtFormatted, 
-                    `<!-- Modelo GFS Open-Meteo para ${stn.name} em ${dtFormatted} -->\nPRES   HGHT   TEMP   DWPT   RELH   MIXR   DRCT   SPED\nhPa     m      C      C      %     g/kg    deg    knot\n----------------------------------------------------\n` +
-                    this.currentData.levels.map(l => `${String(l.pres).padStart(7)} ${String(l.hght||'').padStart(6)} ${String(l.temp||'').padStart(6)} ${String(l.dwpt||'').padStart(6)} ${String(l.relh||'').padStart(6)} ${String(l.mixr||'').padStart(6)} ${String(l.drct||'').padStart(6)} ${String(l.sped_kt||'').padStart(7)}`).join('\n'),
-                    'Modelo GFS Reanálise'
-                );
-                return;
-            }
-        }
-
-        // =============================================================
-        // PASSO 4: FALLBACK PARA AMOSTRAS SALVAS
-        // =============================================================
-        const sampleKey = `${stnId}_${dateStr.replace(/-/g, '')}_${hourStr}`;
-        if (this.sampleFiles[sampleKey]) {
-            this.showStatus('Carregando amostra salva de referência...', 'warning');
-            this.loadSample(sampleKey);
-            return;
-        }
-
-        if (stnId === '83971' || wyomingId === '83971') {
-            this.loadSample('83971_20240501_12');
-            return;
-        }
-
-        this.showStatus(`Nenhuma sondagem disponível para ${stnId} em ${dtFormatted}. Verifique a data ou utilize a aba Análise por Período.`, 'error');
+        // NUNCA inventa nem simula sondagem artificial silenciosamente!
+        const stnDisplay = stn ? `${stn.name} (WMO ${stn.id})` : `Estação ${stnId}`;
+        this.showStatus(`⚠️ A radiossondagem real NÃO está disponível na Universidade de Wyoming para ${stnDisplay} em ${dtFormatted}. Nenhum balão meteorológico foi registrado neste horário.`, 'warning');
     }
 
     // Busca perfil vertical diretamente via API Open-Meteo GFS (Zero CORS block, 100% de disponibilidade)
@@ -734,8 +705,9 @@ class SoundingApp {
             return '<span class="badge badge-extreme">Severa / Extrema</span>';
         };
 
-        const getCinBadge = (val) => {
-            if (!val || Math.abs(val) <= 25) return '<span class="badge badge-favorable">Livre (|CIN| ≤ 25)</span>';
+        const getCinBadge = (val, lfc) => {
+            if (!lfc || !val || Math.abs(val) === 0) return '<span class="badge badge-stable">Livre / Sem Tampa</span>';
+            if (Math.abs(val) <= 25) return '<span class="badge badge-favorable">Fraca (|CIN| ≤ 25)</span>';
             if (Math.abs(val) <= 80) return '<span class="badge badge-moderate">Tampa Moderada</span>';
             return '<span class="badge badge-extreme">Tampa Forte (|CIN| > 80)</span>';
         };
@@ -763,7 +735,7 @@ class SoundingApp {
                         </div>
                         <div class="param-row highlight-row" style="background: rgba(59, 130, 246, 0.1);">
                             <div class="param-name"><strong>CIN (Inibição Convectiva)</strong></div>
-                            <div class="param-val">${fmt(parcel.cin, 'J/kg', 0)} ${getCinBadge(parcel.cin)}</div>
+                            <div class="param-val">${fmt(parcel.cin, 'J/kg', 0)} ${getCinBadge(parcel.cin, parcel.lfc)}</div>
                         </div>
                         <div class="param-row">
                             <div class="param-name">Lifted Index (LI 500 hPa)</div>
