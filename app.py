@@ -408,57 +408,56 @@ class SoundingRequestHandler(http.server.SimpleHTTPRequestHandler):
                     resp_bytes = resp_alt.read()
 
             data = json.loads(resp_bytes.decode('utf-8'))
-                
-                times = data['hourly']['time']
-                target_iso = f"{date_part}T{hour_part}:00"
-                idx = times.index(target_iso) if target_iso in times else (12 if len(times) > 12 else 0)
+            times = data['hourly']['time']
+            target_iso = f"{date_part}T{hour_part}:00"
+            idx = times.index(target_iso) if target_iso in times else (12 if len(times) > 12 else 0)
 
-                lines = [
-                    "-----------------------------------------------------------------------------",
-                    "   PRES   HGHT   TEMP   DWPT   RELH   MIXR   DRCT   SPED   THTA   THTE   THTV",
-                    "    hPa      m      C      C      %   g/kg    deg    m/s      K      K      K ",
-                    "-----------------------------------------------------------------------------"
-                ]
+            lines = [
+                "-----------------------------------------------------------------------------",
+                "   PRES   HGHT   TEMP   DWPT   RELH   MIXR   DRCT   SPED   THTA   THTE   THTV",
+                "    hPa      m      C      C      %   g/kg    deg    m/s      K      K      K ",
+                "-----------------------------------------------------------------------------"
+            ]
 
-                for p in levels:
-                    t = data['hourly'].get(f'temperature_{p}hPa', [None])[idx]
-                    td = data['hourly'].get(f'dew_point_{p}hPa', [None])[idx]
-                    z = data['hourly'].get(f'geopotential_height_{p}hPa', [None])[idx]
-                    rh = data['hourly'].get(f'relative_humidity_{p}hPa', [None])[idx]
-                    ws = data['hourly'].get(f'wind_speed_{p}hPa', [None])[idx]
-                    wd = data['hourly'].get(f'wind_direction_{p}hPa', [None])[idx]
+            for p in levels:
+                t = data['hourly'].get(f'temperature_{p}hPa', [None])[idx]
+                td = data['hourly'].get(f'dew_point_{p}hPa', [None])[idx]
+                z = data['hourly'].get(f'geopotential_height_{p}hPa', [None])[idx]
+                rh = data['hourly'].get(f'relative_humidity_{p}hPa', [None])[idx]
+                ws = data['hourly'].get(f'wind_speed_{p}hPa', [None])[idx]
+                wd = data['hourly'].get(f'wind_direction_{p}hPa', [None])[idx]
 
-                    if t is not None:
-                        z_val = int(z) if z is not None else 0
-                        td_val = td if td is not None else (t - 10.0)
-                        rh_val = int(rh) if rh is not None else 50
-                        ws_ms = (ws / 3.6) if ws is not None else 0.0
-                        wd_val = int(wd) if wd is not None else 0
-                        es = 6.112 * (10 ** ((7.5 * td_val) / (237.3 + td_val)))
-                        w_val = round((0.622 * es / (p - es)) * 1000.0, 2) if p > es else 0.0
+                if t is not None:
+                    z_val = int(z) if z is not None else 0
+                    td_val = td if td is not None else (t - 10.0)
+                    rh_val = int(rh) if rh is not None else 50
+                    ws_ms = (ws / 3.6) if ws is not None else 0.0
+                    wd_val = int(wd) if wd is not None else 0
+                    es = 6.112 * (10 ** ((7.5 * td_val) / (237.3 + td_val)))
+                    w_val = round((0.622 * es / (p - es)) * 1000.0, 2) if p > es else 0.0
 
-                        line_str = f"{p:>7.1f} {z_val:>6d} {t:>6.1f} {td_val:>6.1f} {rh_val:>6d} {w_val:>6.2f} {wd_val:>6d} {ws_ms:>6.1f}    0.0    0.0    0.0"
-                        lines.append(line_str)
+                    line_str = f"{p:>7.1f} {z_val:>6d} {t:>6.1f} {td_val:>6.1f} {rh_val:>6d} {w_val:>6.2f} {wd_val:>6d} {ws_ms:>6.1f}    0.0    0.0    0.0"
+                    lines.append(line_str)
 
-                text_content = f"<!DOCTYPE html><HTML><PRE>\n" + "\n".join(lines) + f"\n</PRE>\n"
-                text_content += f"<TABLE><TR><TD>SLAT</TD><TD>Lat</TD><TD>{coords['lat']}</TD></TR><TR><TD>SLON</TD><TD>Lon</TD><TD>{coords['lon']}</TD></TR></TABLE></HTML>"
+            text_content = f"<!DOCTYPE html><HTML><PRE>\n" + "\n".join(lines) + f"\n</PRE>\n"
+            text_content += f"<TABLE><TR><TD>SLAT</TD><TD>Lat</TD><TD>{coords['lat']}</TD></TR><TR><TD>SLON</TD><TD>Lon</TD><TD>{coords['lon']}</TD></TR></TABLE></HTML>"
 
-                # Salva no disco
-                clean_name = re.sub(r'[^a-zA-Z0-9]', '', stn_name.split('/')[0])
-                save_fname = f"{stn_id}_{date_clean}_{hour_clean}Z_{clean_name}_Modelo_GFS.html"
-                save_path = os.path.join(DOWNLOADS_DIR, save_fname)
-                with open(save_path, 'w', encoding='utf-8') as f:
-                    f.write(text_content)
-                register_downloaded_file(stn_id, stn_name, dt_val, "🌐 Modelo GFS Reanálise", save_fname, save_path, text_content)
-                print(f"💾 [SALVO] Perfil GFS gravado em cache: {save_fname}")
+            # Salva no disco
+            clean_name = re.sub(r'[^a-zA-Z0-9]', '', stn_name.split('/')[0])
+            save_fname = f"{stn_id}_{date_clean}_{hour_clean}Z_{clean_name}_Modelo_GFS.html"
+            save_path = os.path.join(DOWNLOADS_DIR, save_fname)
+            with open(save_path, 'w', encoding='utf-8') as f:
+                f.write(text_content)
+            register_downloaded_file(stn_id, stn_name, dt_val, "🌐 Modelo GFS Reanálise", save_fname, save_path, text_content)
+            print(f"💾 [SALVO] Perfil GFS gravado em cache: {save_fname}")
 
-                self.send_response(200)
-                self.send_header('Content-Type', 'text/html; charset=utf-8')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.send_header('X-Sounding-Cache', 'MISS')
-                self.send_header('X-Sounding-Source', 'Modelo_GFS')
-                self.end_headers()
-                self.wfile.write(text_content.encode('utf-8'))
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('X-Sounding-Cache', 'MISS')
+            self.send_header('X-Sounding-Source', 'Modelo_GFS')
+            self.end_headers()
+            self.wfile.write(text_content.encode('utf-8'))
 
         except Exception as err:
             self.send_response(500)
