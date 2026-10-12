@@ -51,18 +51,18 @@ class PeriodAnalyzer {
             throw new Error('Estação inválida ou sem coordenadas geográficas.');
         }
 
-        const levels = [1000, 975, 950, 925, 900, 850, 800, 700, 600, 500, 400, 300, 250, 200, 150, 100, 70, 50];
+        // Níveis sinóticos e significativos da atmosfera (12 níveis padrão que cobrem da superfície a 100 hPa)
+        const levels = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100];
         const vars = [];
         levels.forEach(p => {
             vars.push(`temperature_${p}hPa`);
             vars.push(`dew_point_${p}hPa`);
-            vars.push(`relative_humidity_${p}hPa`);
+            vars.push(`geopotential_height_${p}hPa`);
             vars.push(`wind_speed_${p}hPa`);
             vars.push(`wind_direction_${p}hPa`);
-            vars.push(`geopotential_height_${p}hPa`);
         });
 
-        // Determina se usa API de Arquivo Histórico (Archive) ou Previsão (Forecast)
+        // Determina se usa API de Arquivo Histórico, Historical Forecast ou Previsão
         const now = new Date();
         const yyyy = now.getUTCFullYear();
         const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
@@ -71,63 +71,125 @@ class PeriodAnalyzer {
 
         const startDt = new Date(`${startDate}T00:00:00Z`);
         const daysAgoStart = (now.getTime() - startDt.getTime()) / (1000 * 3600 * 24);
+        const reqYear = parseInt(startDate.substring(0, 4), 10);
 
-        // A Archive API suporta desde 1940 até a data de hoje (sem o limite de 90 dias do Forecast).
-        // Se a data de início for anterior a 85 dias atrás, OU se a data final for até hoje, usamos Archive API.
-        let baseUrl = 'https://archive-api.open-meteo.com/v1/archive';
         let reqEndDate = endDate;
-
-        if (endDate > todayStr && daysAgoStart <= 85) {
-            // Período futuro dentro da janela permitida pelo Forecast
-            baseUrl = 'https://api.open-meteo.com/v1/forecast';
-        } else if (endDate > todayStr && daysAgoStart > 85) {
-            // Período que começa no passado distante e vai até o futuro:
-            // Limita a busca no arquivo histórico até hoje para não falhar
+        if (endDate > todayStr && daysAgoStart > 85) {
             reqEndDate = todayStr;
         }
 
-        const queryParams = new URLSearchParams({
-            latitude: station.lat.toFixed(4),
-            longitude: station.lon.toFixed(4),
-            start_date: startDate,
-            end_date: reqEndDate,
-            models: 'gfs_seamless',
-            hourly: vars.join(',')
+        // Lista inteligente de clusters candidatos ordenados por cota disponível e suporte temporal
+        const candidates = [];
+
+        // 1. Cluster de Previsão Histórica (historical-forecast-api):
+        // Cluster rápido de reanálise, com cota dedicada independente e sem o bloqueio 429 de archive-api
+        if (reqYear >= 2022) {
+            candidates.push({
+                baseUrl: 'https://historical-forecast-api.open-meteo.com/v1/forecast',
+                model: 'gfs_seamless',
+                name: 'Historical Forecast (GFS Seamless)'
+            });
+        } else {
+            // Para anos anteriores a 2022 (ex: 2020), o modelo JMA possui 100% dos níveis verticais disponíveis
+            candidates.push({
+                baseUrl: 'https://historical-forecast-api.open-meteo.com/v1/forecast',
+                model: 'jma_seamless',
+                name: 'Historical Forecast (JMA Seamless)'
+            });
+            candidates.push({
+                baseUrl: 'https://historical-forecast-api.open-meteo.com/v1/forecast',
+                model: 'gfs_seamless',
+                name: 'Historical Forecast (GFS Seamless)'
+            });
+        }
+
+        // 2. Cluster de Arquivo Histórico (archive-api)
+        candidates.push({
+            baseUrl: 'https://archive-api.open-meteo.com/v1/archive',
+            model: 'gfs_seamless',
+            name: 'Archive API (GFS)'
+        });
+        candidates.push({
+            baseUrl: 'https://archive-api.open-meteo.com/v1/archive',
+            model: 'era5',
+            name: 'Archive API (ERA5)'
         });
 
-        console.log(`[PeriodAnalyzer] Baixando período para ${station.name} (${startDate} a ${reqEndDate}) via ${baseUrl}...`);
-
-        let resp = await fetch(`${baseUrl}?${queryParams.toString()}`);
-        let data = null;
-
-        // Se falhou (ex: restrição de datas do Forecast ou Archive), tenta rota alternativa automaticamente!
-        if (!resp.ok) {
-            const errData = await resp.json().catch(() => ({}));
-            const reason = errData.reason || '';
-            console.warn(`[PeriodAnalyzer] Tentativa inicial falhou (${reason}). Tentando rota alternativa...`);
-
-            if (baseUrl.includes('forecast')) {
-                // Tenta na Archive API limitando a data final a hoje
-                const altParams = new URLSearchParams(queryParams);
-                if (altParams.get('end_date') > todayStr) altParams.set('end_date', todayStr);
-                const altResp = await fetch(`https://archive-api.open-meteo.com/v1/archive?${altParams.toString()}`);
-                if (altResp.ok) {
-                    data = await altResp.json();
-                }
-            } else if (baseUrl.includes('archive')) {
-                // Tenta na Forecast API
-                const altResp = await fetch(`https://api.open-meteo.com/v1/forecast?${queryParams.toString()}`);
-                if (altResp.ok) {
-                    data = await altResp.json();
-                }
-            }
-
-            if (!data) {
-                throw new Error(reason || `Falha na requisição (HTTP ${resp.status})`);
-            }
-        } else {
-            data = await resp.json();
+        // 3. Cluster Operacional (api.open-meteo.com) - para períodos recentes dentro de 90 dias
+        if (daysAgoStart <= 90) {
+            candidates.push({
+                baseUrl: 'https://api.open-meteo.com/v1/forecast',
+                model: 'gfs_seamless',
+                name: 'Forecast API (GFS)'
+            });
         }
+
+        let data = null;
+        let lastError = null;
+
+        for (const cand of candidates) {
+            try {
+                const queryParams = new URLSearchParams({
+                    latitude: station.lat.toFixed(4),
+                    longitude: station.lon.toFixed(4),
+                    start_date: startDate,
+                    end_date: reqEndDate,
+                    models: cand.model,
+                    hourly: vars.join(',')
+                });
+
+                console.log(`[PeriodAnalyzer] Buscando período para ${station.name} (${startDate} a ${reqEndDate}) via ${cand.name}...`);
+                const resp = await fetch(`${cand.baseUrl}?${queryParams.toString()}`);
+
+                if (resp.ok) {
+                    const json = await resp.json();
+                    if (json && json.hourly && json.hourly.time && json.hourly.time.length > 0) {
+                        // Verifica se vieram dados válidos de temperatura (não apenas array de nulls)
+                        const testKey = `temperature_1000hPa_${cand.model}` in json.hourly 
+                            ? `temperature_1000hPa_${cand.model}` 
+                            : 'temperature_1000hPa';
+                        const testVals = json.hourly[testKey] || json.hourly['temperature_850hPa'] || [];
+                        const hasValidData = testVals.some(v => v !== null && v !== undefined);
+
+                        if (hasValidData) {
+                            data = json;
+                            // Normaliza variáveis caso venham sufixadas pelo nome do modelo
+                            if (cand.model) {
+                                levels.forEach(p => {
+                                    ['temperature', 'dew_point', 'geopotential_height', 'wind_speed', 'wind_direction'].forEach(param => {
+                                        const modelKey = `${param}_${p}hPa_${cand.model}`;
+                                        const stdKey = `${param}_${p}hPa`;
+                                        if (data.hourly[modelKey] && (!data.hourly[stdKey] || data.hourly[stdKey].length === 0)) {
+                                            data.hourly[stdKey] = data.hourly[modelKey];
+                                        }
+                                    });
+                                });
+                            }
+                            console.log(`[PeriodAnalyzer] Sucesso via ${cand.name}! ${data.hourly.time.length} passos temporais obtidos.`);
+                            break;
+                        } else {
+                            console.warn(`[PeriodAnalyzer] ${cand.name} retornou dados sem perfis verticais válidos para este ano. Tentando próximo...`);
+                        }
+                    }
+                } else {
+                    const errData = await resp.json().catch(() => ({}));
+                    const reason = errData.reason || `HTTP ${resp.status}`;
+                    console.warn(`[PeriodAnalyzer] ${cand.name} falhou: ${reason}. Tentando próximo candidato...`);
+                    lastError = reason;
+                }
+            } catch (err) {
+                console.warn(`[PeriodAnalyzer] Exceção ao consultar ${cand.name}:`, err);
+                lastError = err.message;
+            }
+        }
+
+        if (!data) {
+            if (lastError && (lastError.includes('limit exceeded') || lastError.includes('429'))) {
+                throw new Error('Limite de requisições por hora atingido no servidor externo. Aguarde alguns minutos ou selecione um intervalo de datas menor (ex: 15 a 30 dias).');
+            }
+            throw new Error(lastError || 'Não foi possível obter dados para o período solicitado em nenhum dos servidores.');
+        }
+
         if (!data.hourly || !data.hourly.time || data.hourly.time.length === 0) {
             throw new Error('Nenhum dado retornado para o período solicitado.');
         }
@@ -148,23 +210,27 @@ class PeriodAnalyzer {
             const profileLevels = [];
             levels.forEach(p => {
                 const t = data.hourly[`temperature_${p}hPa`][i];
-                const td = data.hourly[`dew_point_${p}hPa`][i];
-                const z = data.hourly[`geopotential_height_${p}hPa`][i];
-                const rh = data.hourly[`relative_humidity_${p}hPa`][i];
-                const ws = data.hourly[`wind_speed_${p}hPa`][i]; // km/h
-                const wd = data.hourly[`wind_direction_${p}hPa`][i];
+                const td = data.hourly[`dew_point_${p}hPa`] ? data.hourly[`dew_point_${p}hPa`][i] : null;
+                const z = data.hourly[`geopotential_height_${p}hPa`] ? data.hourly[`geopotential_height_${p}hPa`][i] : null;
+                const rhRaw = data.hourly[`relative_humidity_${p}hPa`] ? data.hourly[`relative_humidity_${p}hPa`][i] : null;
+                const ws = data.hourly[`wind_speed_${p}hPa`] ? data.hourly[`wind_speed_${p}hPa`][i] : null; // km/h
+                const wd = data.hourly[`wind_direction_${p}hPa`] ? data.hourly[`wind_direction_${p}hPa`][i] : null;
 
                 if (t !== null && t !== undefined) {
-                    const wsKt = ws !== null ? Math.round((ws / 1.852) * 10) / 10 : 0;
-                    const wsMs = ws !== null ? ws / 3.6 : 0;
+                    const wsKt = (ws !== null && ws !== undefined) ? Math.round((ws / 1.852) * 10) / 10 : 0;
+                    const wsMs = (ws !== null && ws !== undefined) ? ws / 3.6 : 0;
+                    const calcRh = (rhRaw !== null && rhRaw !== undefined) 
+                        ? rhRaw 
+                        : (td !== null ? Math.round(Thermo.relativeHumidity(t, td)) : null);
+
                     profileLevels.push({
                         pres: p,
-                        hght: z !== null ? Math.round(z) : null,
+                        hght: (z !== null && z !== undefined) ? Math.round(z) : null,
                         temp: Math.round(t * 10) / 10,
-                        dwpt: td !== null ? Math.round(td * 10) / 10 : null,
-                        relh: rh !== null ? Math.round(rh) : null,
+                        dwpt: (td !== null && td !== undefined) ? Math.round(td * 10) / 10 : null,
+                        relh: calcRh,
                         mixr: td !== null ? Math.round(Thermo.satMixingRatio(p, td) * 100) / 100 : null,
-                        drct: wd !== null ? Math.round(wd) : null,
+                        drct: (wd !== null && wd !== undefined) ? Math.round(wd) : null,
                         sped: wsMs,
                         sped_kt: wsKt
                     });

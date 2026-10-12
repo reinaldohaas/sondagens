@@ -28,6 +28,15 @@ const Thermo = {
         return 6.112 * Math.exp((17.67 * tC) / (tC + 243.5));
     },
 
+    // Umidade Relativa (%) a partir de T e Td
+    relativeHumidity(tC, tdC) {
+        if (tC === null || tdC === null) return null;
+        const e = this.satVaporPressure(tdC);
+        const es = this.satVaporPressure(tC);
+        if (es <= 0) return 0;
+        return Math.min(100, Math.max(0, Math.round((e / es) * 100)));
+    },
+
     // Temperatura de ponto de orvalho a partir da pressão de vapor (hPa)
     dewpointFromVp(e) {
         if (e <= 0) return -99.9;

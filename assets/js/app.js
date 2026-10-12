@@ -538,30 +538,38 @@ class SoundingApp {
                 vars.push(`geopotential_height_${p}hPa`);
             });
 
-            // Determina se data é histórica ou recente
-            const now = new Date();
-            const reqDt = new Date(`${dateStr}T12:00:00Z`);
-            const daysDiff = (now.getTime() - reqDt.getTime()) / (1000 * 3600 * 24);
-
-            let endpoint = daysDiff >= 3 ? 'https://archive-api.open-meteo.com/v1/archive' : 'https://api.open-meteo.com/v1/forecast';
+            // Determina endpoints candidatos resilientes
+            const reqYear = parseInt(dateStr.substring(0, 4), 10);
+            const modelToUse = (reqYear < 2022) ? 'jma_seamless' : 'gfs_seamless';
+            const candidateEndpoints = [
+                'https://historical-forecast-api.open-meteo.com/v1/forecast',
+                'https://archive-api.open-meteo.com/v1/archive',
+                'https://api.open-meteo.com/v1/forecast'
+            ];
 
             const query = new URLSearchParams({
                 latitude: station.lat.toFixed(4),
                 longitude: station.lon.toFixed(4),
                 start_date: dateStr,
                 end_date: dateStr,
-                models: 'gfs_seamless',
+                models: modelToUse,
                 hourly: vars.join(',')
             });
 
-            let resp = await fetch(`${endpoint}?${query.toString()}`);
-            if (!resp.ok) {
-                const altEndpoint = endpoint.includes('forecast')
-                    ? 'https://archive-api.open-meteo.com/v1/archive'
-                    : 'https://api.open-meteo.com/v1/forecast';
-                resp = await fetch(`${altEndpoint}?${query.toString()}`);
+            let resp = null;
+            for (const ep of candidateEndpoints) {
+                try {
+                    const r = await fetch(`${ep}?${query.toString()}`);
+                    if (r.ok) {
+                        resp = r;
+                        break;
+                    }
+                } catch (err) {
+                    // Tenta o próximo endpoint
+                }
             }
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+            if (!resp || !resp.ok) throw new Error('Não foi possível obter os dados do modelo meteorológico nos servidores.');
 
             const data = await resp.json();
             const times = data.hourly.time;
