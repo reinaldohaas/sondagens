@@ -81,9 +81,10 @@
             </div>
 
             <!-- Busca rápida por texto / código WMO / ICAO -->
-            <div class="control-group" style="flex: 0.8; min-width: 140px;">
-                <label for="stationSearchInput">Buscar Código / Nome</label>
-                <input type="text" id="stationSearchInput" class="control-input" placeholder="Ex: SBFL, SBPA, Curitiba">
+            <div class="control-group" style="flex: 0.8; min-width: 160px; position: relative;">
+                <label for="stationSearchInput">Buscar Código / Nome / URL</label>
+                <input type="text" id="stationSearchInput" class="control-input" placeholder="Ex: 83952, SBCO, link Wyoming...">
+                <div id="searchFeedbackBadge" class="search-feedback-badge" style="display: none;"></div>
             </div>
 
             <!-- Seletor de Data -->
@@ -189,6 +190,11 @@
                     </div>
                     <div class="canvas-wrapper">
                         <canvas id="skewtCanvas"></canvas>
+                        <div id="chartLoadingOverlay" class="chart-loading-overlay" style="display: none;">
+                            <div class="loading-spinner-circle"></div>
+                            <div id="loadingOverlayText" class="loading-overlay-text">Buscando Radiossondagem...</div>
+                            <div id="loadingOverlaySubtext" class="loading-overlay-subtext">Verificando cache e conectando à Univ. of Wyoming...</div>
+                        </div>
                     </div>
                     <!-- CONTROLE DE CAMADAS DO SKEW-T -->
                     <div class="layers-toolbar">

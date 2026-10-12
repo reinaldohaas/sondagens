@@ -149,20 +149,138 @@ body {
 }
 
 /* -------------------------------------------------------------
-   STATUS BAR
+   FEEDBACK & LOADING INDICATORS
    ------------------------------------------------------------- */
-.status-bar {
-    padding: 6px 24px;
-    font-size: 12px;
-    font-weight: 500;
-    transition: all 0.3s ease;
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
-.status-info { background-color: #1e293b; color: #94a3b8; }
-.status-loading { background-color: #0c4a6e; color: #38bdf8; }
-.status-success { background-color: #064e3b; color: #34d399; }
-.status-warning { background-color: #78350f; color: #fde047; }
-.status-error { background-color: #7f1d1d; color: #fca5a5; }
+@keyframes pulseGlow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.88; transform: scale(1.01); }
+}
+
+.spinner-inline {
+    display: inline-block;
+    width: 13px;
+    height: 13px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+.status-bar {
+    padding: 8px 24px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 40px;
+}
+
+.status-bar-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.status-actions {
+    display: inline-flex;
+    gap: 8px;
+}
+
+.status-action-btn {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid currentColor;
+    background: rgba(0, 0, 0, 0.25);
+    color: inherit;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.status-action-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.status-info { background-color: #1e293b; color: #94a3b8; border-bottom: 1px solid #334155; }
+.status-loading { background-color: #0c4a6e; color: #38bdf8; border-bottom: 1px solid #0284c7; }
+.status-success { background-color: #064e3b; color: #34d399; border-bottom: 1px solid #059669; }
+.status-warning { background-color: #78350f; color: #fde047; border-bottom: 1px solid #d97706; }
+.status-error { background-color: #7f1d1d; color: #fca5a5; border-bottom: 1px solid #dc2626; }
+
+/* Overlay de Carregamento nos Gráficos */
+.chart-loading-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(4px);
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    transition: opacity 0.25s ease;
+    border-radius: var(--radius-md);
+}
+
+.loading-spinner-circle {
+    width: 44px;
+    height: 44px;
+    border: 3.5px solid rgba(56, 189, 248, 0.2);
+    border-top-color: #38bdf8;
+    border-right-color: #06b6d4;
+    border-radius: 50%;
+    animation: spin 0.9s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
+}
+
+.loading-overlay-text {
+    font-size: 15px;
+    font-weight: 700;
+    color: #f8fafc;
+    text-align: center;
+}
+
+.loading-overlay-subtext {
+    font-size: 12px;
+    color: #94a3b8;
+    max-width: 380px;
+    text-align: center;
+}
+
+/* Badge de Feedback da Busca */
+.search-feedback-badge {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    padding: 6px 10px;
+    background: #064e3b;
+    border: 1px solid #059669;
+    color: #34d399;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 4px;
+    z-index: 30;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    animation: pulseGlow 1.5s ease infinite;
+}
 
 /* -------------------------------------------------------------
    BARRA DE CONTROLE / FILTROS

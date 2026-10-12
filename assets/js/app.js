@@ -195,7 +195,11 @@ class SoundingApp {
         const searchInput = document.getElementById('stationSearchInput');
         searchInput?.addEventListener('input', async (e) => {
             const val = e.target.value.trim();
-            if (!val) return;
+            if (!val) {
+                const badge = document.getElementById('searchFeedbackBadge');
+                if (badge) badge.style.display = 'none';
+                return;
+            }
 
             // 1. Detecta se o usuário colou uma URL da Universidade de Wyoming
             if (val.includes('weather.uwyo.edu') || val.includes('sounding?')) {
@@ -242,6 +246,7 @@ class SoundingApp {
                         }
                     }
 
+                    this.showSearchBadge(`🔗 Link da Univ. of Wyoming detectado: Estação ${qId || this.currentStationId} (${this.currentDate} ${this.currentHour}Z)`);
                     this.showStatus(`🔗 Link da Univ. of Wyoming detectado: Estação ${qId || this.currentStationId}, data ${this.currentDate} ${this.currentHour}Z. Buscando...`, 'loading');
                     await this.fetchSounding();
                     return;
@@ -267,7 +272,17 @@ class SoundingApp {
                         this.currentStationId = match.id;
                         this.updateStationInfo();
                     }
+                    this.showSearchBadge(`✅ Estação selecionada: ${match.name} (WMO ${match.id}${match.icao ? ' / ' + match.icao : ''})`);
+                } else if (val.length >= 3) {
+                    this.showSearchBadge(`🔍 Digite o código WMO ou Enter para buscar "${val}"`);
                 }
+            }
+        });
+
+        searchInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.fetchSounding();
             }
         });
     }
@@ -480,7 +495,6 @@ class SoundingApp {
     }
 
     // -------------------------------------------------------------
-    // -------------------------------------------------------------
     // BUSCA DE SONDAGEM COM CACHE-FIRST E PRIORIDADE WYOMING BUFR
     // -------------------------------------------------------------
     async fetchSounding() {
@@ -493,110 +507,140 @@ class SoundingApp {
         const hourStr = hourInput ? hourInput.value : this.currentHour;
         const dtFormatted = `${dateStr} ${hourStr}:00:00`;
         const wyomingId = getWyomingStationId(stnId);
+        const stnDisplay = stn ? `${stn.name} (WMO ${stn.id})` : `Estação ${stnId}`;
 
+        this.showLoading('Buscando Radiossondagem...', `Verificando cache para ${stnDisplay} em ${dtFormatted}...`);
         this.showStatus(`Verificando cache e buscando sondagem ${stnId} (${wyomingId}) para ${dtFormatted}...`, 'loading');
 
-        // =============================================================
-        // PASSO 1: SEMPRE VERIFICAR SE O ARQUIVO JÁ ESTÁ BAIXADO EM CACHE
-        // =============================================================
         try {
-            const cached = await window.downloadsManager?.checkCache(wyomingId, dtFormatted);
-            if (cached && cached.content) {
-                const parsed = DataParser.parse(cached.content, {
-                    station_id: stnId,
-                    station_name: stn ? stn.name : `Estação ${stnId}`,
-                    timestamp: dtFormatted
-                });
+            // =============================================================
+            // PASSO 1: SEMPRE VERIFICAR SE O ARQUIVO JÁ ESTÁ BAIXADO EM CACHE
+            // =============================================================
+            try {
+                const cached = await window.downloadsManager?.checkCache(wyomingId, dtFormatted);
+                if (cached && cached.content) {
+                    const parsed = DataParser.parse(cached.content, {
+                        station_id: stnId,
+                        station_name: stn ? stn.name : `Estação ${stnId}`,
+                        timestamp: dtFormatted
+                    });
 
-                if (parsed && parsed.levels.length > 3) {
-                    this.currentData = parsed;
-                    this.recalculateAndRender();
-                    const cacheType = cached.source === 'cache_disk' ? '💾 Arquivo em Disco' : '⚡ Cache Local';
-                    this.showStatus(`[${cacheType}] Sondagem já baixada carregada instantaneamente (${parsed.levels.length} níveis)`, 'success');
-                    return;
+                    if (parsed && parsed.levels.length > 3) {
+                        this.currentData = parsed;
+                        this.recalculateAndRender();
+                        const cacheType = cached.source === 'cache_disk' ? '💾 Arquivo em Disco' : '⚡ Cache Local';
+                        this.showStatus(`[${cacheType}] Sondagem carregada instantaneamente (${parsed.levels.length} níveis)`, 'success');
+                        return;
+                    }
                 }
+            } catch (err) {
+                console.warn('Erro ao verificar cache local:', err);
             }
-        } catch (err) {
-            console.warn('Erro ao verificar cache local:', err);
-        }
 
-        // =============================================================
-        // PASSO 2: PRIORIZAR SONDAGEM REAL NA UNIV. OF WYOMING (src=BUFR)
-        // =============================================================
-        let lastWyomingStatus = null;
-        let lastWyomingErrorMsg = null;
+            // =============================================================
+            // PASSO 2: PRIORIZAR SONDAGEM REAL NA UNIV. OF WYOMING (src=BUFR)
+            // =============================================================
+            let lastWyomingStatus = null;
+            let lastWyomingErrorMsg = null;
 
-        // 2A. Via backend Python local (/api/sounding) - já verifica disco e faz fetch Wyoming BUFR com timeout adequado
-        try {
-            const localApiUrl = `/api/sounding?id=${encodeURIComponent(wyomingId)}&datetime=${encodeURIComponent(dtFormatted)}`;
-            const localResp = await fetch(localApiUrl, { signal: AbortSignal.timeout(28000) });
-            if (localResp.ok) {
-                const text = await localResp.text();
-                const isCacheHit = localResp.headers.get('X-Sounding-Cache') === 'HIT';
-                const sourceTag = localResp.headers.get('X-Sounding-Source') || (text.includes('BUFR') ? 'Wyoming Real BUFR' : 'Wyoming Real');
-                
-                const parsed = DataParser.parse(text, {
-                    station_id: stnId,
-                    station_name: stn ? stn.name : `Estação ${stnId}`,
-                    timestamp: dtFormatted
-                });
+            this.updateLoadingStep(`Conectando à Univ. of Wyoming (src=BUFR) para ${stnDisplay}...`);
 
-                if (parsed && parsed.levels.length > 3) {
-                    this.currentData = parsed;
-                    this.recalculateAndRender();
-
-                    // Salva no gerenciador de downloads para atualizar contador e tabela
-                    window.downloadsManager?.saveSounding(stnId, stn?.name, dtFormatted, text, isCacheHit ? 'Arquivo Local Baixado' : sourceTag);
-
-                    const hitMsg = isCacheHit ? '⚡ Carregado do arquivo salvo em data/downloads/' : `🎈 Sondagem real baixada da Univ. of Wyoming (${sourceTag})`;
-                    this.showStatus(`${hitMsg} (${parsed.levels.length} níveis)`, 'success');
-                    return;
-                }
-            } else {
-                lastWyomingStatus = localResp.status;
-                const errJson = await localResp.json().catch(() => null);
-                if (errJson && errJson.error) lastWyomingErrorMsg = errJson.error;
-            }
-        } catch (e) {
-            console.log('Backend local não respondeu ou demorou. Tentando métodos alternativos...', e);
-        }
-
-        // 2B. Requisição direta cliente ao Wyoming (se hospedado no mesmo domínio ou via proxy)
-        try {
-            const wyomingBUFRUrl = `https://weather.uwyo.edu/wsgi/sounding?datetime=${encodeURIComponent(dtFormatted)}&id=${encodeURIComponent(wyomingId)}&src=BUFR&type=TEXT:LIST`;
-            const wyomingResp = await fetch(wyomingBUFRUrl, { signal: AbortSignal.timeout(12000) });
-            if (wyomingResp.ok) {
-                const text = await wyomingResp.text();
-                if (text.includes('PRES')) {
+            // 2A. Via backend Python local (/api/sounding) - já verifica disco e faz fetch Wyoming BUFR com timeout adequado
+            try {
+                const localApiUrl = `/api/sounding?id=${encodeURIComponent(wyomingId)}&datetime=${encodeURIComponent(dtFormatted)}`;
+                const localResp = await fetch(localApiUrl, { signal: AbortSignal.timeout(28000) });
+                if (localResp.ok) {
+                    const text = await localResp.text();
+                    const isCacheHit = localResp.headers.get('X-Sounding-Cache') === 'HIT';
+                    const sourceTag = localResp.headers.get('X-Sounding-Source') || (text.includes('BUFR') ? 'Wyoming Real BUFR' : 'Wyoming Real');
+                    
                     const parsed = DataParser.parse(text, {
                         station_id: stnId,
                         station_name: stn ? stn.name : `Estação ${stnId}`,
                         timestamp: dtFormatted
                     });
+
                     if (parsed && parsed.levels.length > 3) {
                         this.currentData = parsed;
                         this.recalculateAndRender();
-                        window.downloadsManager?.saveSounding(stnId, stn?.name, dtFormatted, text, 'Wyoming Real BUFR');
-                        this.showStatus(`🎈 Sondagem real baixada diretamente da Univ. of Wyoming BUFR (${parsed.levels.length} níveis)`, 'success');
+
+                        // Salva no gerenciador de downloads para atualizar contador e tabela
+                        window.downloadsManager?.saveSounding(stnId, stn?.name, dtFormatted, text, isCacheHit ? 'Arquivo Local Baixado' : sourceTag);
+
+                        const hitMsg = isCacheHit ? '⚡ Carregado do arquivo salvo em data/downloads/' : `🎈 Sondagem real baixada da Univ. of Wyoming (${sourceTag})`;
+                        this.showStatus(`${hitMsg} (${parsed.levels.length} níveis)`, 'success');
                         return;
                     }
+                } else {
+                    lastWyomingStatus = localResp.status;
+                    const errJson = await localResp.json().catch(() => null);
+                    if (errJson && errJson.error) lastWyomingErrorMsg = errJson.error;
                 }
-            } else {
-                lastWyomingStatus = wyomingResp.status;
+            } catch (e) {
+                console.log('Backend local não respondeu ou demorou. Tentando métodos alternativos...', e);
             }
-        } catch (e) {
-            // Wyoming bloqueado por CORS ou indisponível no cliente
-        }
 
-        // =============================================================
-        // PASSO 3: SONDAGEM REAL NÃO DISPONÍVEL NA WYOMING OU SERVIDOR OCUPADO
-        // =============================================================
-        // NUNCA inventa nem simula sondagem artificial silenciosamente!
-        const stnDisplay = stn ? `${stn.name} (WMO ${stn.id})` : `Estação ${stnId}`;
-        if (lastWyomingStatus === 503 || (lastWyomingErrorMsg && lastWyomingErrorMsg.includes('503'))) {
-            this.showStatus(`⚠️ O servidor da Universidade de Wyoming está temporariamente sobrecarregado (HTTP 503: The server is too busy). Tente novamente em alguns instantes para ${stnDisplay} em ${dtFormatted}.`, 'warning');
-        } else {
-            this.showStatus(`⚠️ A radiossondagem real NÃO está disponível na Universidade de Wyoming para ${stnDisplay} em ${dtFormatted}. Nenhum balão meteorológico foi registrado neste horário.`, 'warning');
+            // 2B. Requisição direta cliente ao Wyoming (se hospedado no mesmo domínio ou via proxy)
+            this.updateLoadingStep(`Tentativa direta de conexão com weather.uwyo.edu...`);
+            try {
+                const wyomingBUFRUrl = `https://weather.uwyo.edu/wsgi/sounding?datetime=${encodeURIComponent(dtFormatted)}&id=${encodeURIComponent(wyomingId)}&src=BUFR&type=TEXT:LIST`;
+                const wyomingResp = await fetch(wyomingBUFRUrl, { signal: AbortSignal.timeout(12000) });
+                if (wyomingResp.ok) {
+                    const text = await wyomingResp.text();
+                    if (text.includes('PRES')) {
+                        const parsed = DataParser.parse(text, {
+                            station_id: stnId,
+                            station_name: stn ? stn.name : `Estação ${stnId}`,
+                            timestamp: dtFormatted
+                        });
+                        if (parsed && parsed.levels.length > 3) {
+                            this.currentData = parsed;
+                            this.recalculateAndRender();
+                            window.downloadsManager?.saveSounding(stnId, stn?.name, dtFormatted, text, 'Wyoming Real BUFR');
+                            this.showStatus(`🎈 Sondagem real baixada diretamente da Univ. of Wyoming BUFR (${parsed.levels.length} níveis)`, 'success');
+                            return;
+                        }
+                    }
+                } else {
+                    lastWyomingStatus = wyomingResp.status;
+                }
+            } catch (e) {
+                // Wyoming bloqueado por CORS ou indisponível no cliente
+            }
+
+            // =============================================================
+            // PASSO 3: SONDAGEM REAL NÃO DISPONÍVEL NA WYOMING OU SERVIDOR OCUPADO
+            // =============================================================
+            // NUNCA inventa nem simula sondagem artificial silenciosamente!
+            if (lastWyomingStatus === 503 || (lastWyomingErrorMsg && lastWyomingErrorMsg.includes('503'))) {
+                const actions = [
+                    {
+                        label: '🔄 Tentar Novamente',
+                        onClick: () => this.fetchSounding()
+                    },
+                    {
+                        label: '🌐 Carregar Modelo GFS',
+                        onClick: () => {
+                            const s = findStation(this.currentStationId);
+                            if (s) this.fetchOpenMeteoSounding(s, dateStr, hourStr);
+                        }
+                    }
+                ];
+                this.showStatus(`⚠️ O servidor da Universidade de Wyoming está temporariamente sobrecarregado (HTTP 503: The server is too busy). Tente novamente em instantes para ${stnDisplay} em ${dtFormatted}.`, 'warning', actions);
+            } else {
+                const actions = [
+                    {
+                        label: '🌐 Carregar Perfil Modelo GFS',
+                        onClick: () => {
+                            const s = findStation(this.currentStationId);
+                            if (s) this.fetchOpenMeteoSounding(s, dateStr, hourStr);
+                        }
+                    }
+                ];
+                this.showStatus(`⚠️ A radiossondagem real NÃO está disponível na Universidade de Wyoming para ${stnDisplay} em ${dtFormatted}. Nenhum balão meteorológico foi registrado neste horário.`, 'warning', actions);
+            }
+        } finally {
+            this.hideLoading();
         }
     }
 
@@ -967,12 +1011,80 @@ class SoundingApp {
         });
     }
 
-    // Exibição de mensagens de status (carregando, sucesso, erro)
-    showStatus(msg, type = 'info') {
+    // Exibição de mensagens de status (carregando, sucesso, aviso, erro) com suporte a botões de ação
+    showStatus(msg, type = 'info', actions = null) {
         const bar = document.getElementById('statusBar');
         if (!bar) return;
-        bar.textContent = msg;
         bar.className = `status-bar status-${type}`;
+        
+        let html = `<div class="status-bar-content">${msg}</div>`;
+        if (actions && Array.isArray(actions) && actions.length > 0) {
+            html += `<div class="status-actions">`;
+            actions.forEach((act, idx) => {
+                html += `<button class="status-action-btn" id="statusActionBtn_${idx}">${act.label}</button>`;
+            });
+            html += `</div>`;
+        }
+        bar.innerHTML = html;
+
+        if (actions && Array.isArray(actions)) {
+            actions.forEach((act, idx) => {
+                const btn = document.getElementById(`statusActionBtn_${idx}`);
+                if (btn && act.onClick) {
+                    btn.addEventListener('click', (ev) => {
+                        ev.preventDefault();
+                        act.onClick();
+                    });
+                }
+            });
+        }
+    }
+
+    // Controle do Overlay de Carregamento nos Gráficos e Botões
+    showLoading(title = 'Buscando Radiossondagem...', subtitle = 'Conectando ao servidor...') {
+        const overlay = document.getElementById('chartLoadingOverlay');
+        const titleEl = document.getElementById('loadingOverlayText');
+        const subEl = document.getElementById('loadingOverlaySubtext');
+        if (titleEl) titleEl.textContent = title;
+        if (subEl) subEl.textContent = subtitle;
+        if (overlay) overlay.style.display = 'flex';
+
+        const btnFetch = document.getElementById('btnFetch');
+        if (btnFetch) {
+            btnFetch.disabled = true;
+            btnFetch.innerHTML = '<span class="spinner-inline"></span> ⏳ Buscando...';
+        }
+    }
+
+    updateLoadingStep(subtitle) {
+        const subEl = document.getElementById('loadingOverlaySubtext');
+        if (subEl) subEl.textContent = subtitle;
+    }
+
+    hideLoading() {
+        const overlay = document.getElementById('chartLoadingOverlay');
+        if (overlay) overlay.style.display = 'none';
+
+        const btnFetch = document.getElementById('btnFetch');
+        if (btnFetch) {
+            btnFetch.disabled = false;
+            btnFetch.innerHTML = '🔍 Buscar Sondagem';
+        }
+    }
+
+    // Badge visual instantâneo para retorno na digitação/busca
+    showSearchBadge(text, isError = false) {
+        const badge = document.getElementById('searchFeedbackBadge');
+        if (!badge) return;
+        badge.style.display = 'block';
+        badge.style.backgroundColor = isError ? '#7f1d1d' : '#064e3b';
+        badge.style.borderColor = isError ? '#dc2626' : '#059669';
+        badge.style.color = isError ? '#fca5a5' : '#34d399';
+        badge.innerHTML = text;
+        clearTimeout(this._searchBadgeTimeout);
+        this._searchBadgeTimeout = setTimeout(() => {
+            badge.style.display = 'none';
+        }, 3500);
     }
 
     // Exportação da imagem do Skew-T em PNG
