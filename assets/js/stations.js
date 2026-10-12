@@ -9,6 +9,20 @@ const STATIONS_CATALOG = {
     // -------------------------------------------------------------
     south_brazil: [
         {
+            id: '83952',
+            icao: 'SBCO',
+            aliases: ['83952', 'SBCO', 'CANOAS', 'Canoas', 'BACO'],
+            name: 'Canoas / Base Aérea',
+            state: 'RS',
+            region: 'Sul do Brasil',
+            country: 'Brasil',
+            lat: -29.93,
+            lon: -51.13,
+            elev: 8,
+            badge: 'Prioridade',
+            desc: 'Região Metropolitana de Porto Alegre (Base Aérea de Canoas - SBCO). Estação ativa de radiossondagem WMO 83952 da Força Aérea Brasileira.'
+        },
+        {
             id: '83971',
             icao: 'SBPA',
             name: 'Porto Alegre / Salgado Filho',
@@ -548,11 +562,31 @@ function findStation(query) {
     if (exact) return exact;
 
     // 2. Busca parcial por nome ou estado
-    return all.find(s => 
+    const partial = all.find(s => 
         s.name.toUpperCase().includes(q) || 
         (s.state && s.state.toUpperCase() === q) ||
         s.country.toUpperCase().includes(q)
-    ) || null;
+    );
+    if (partial) return partial;
+
+    // 3. Suporte dinâmico a qualquer código WMO numérico de 4 a 6 dígitos (mundial)
+    if (/^\d{4,6}$/.test(q)) {
+        return {
+            id: q,
+            icao: `WMO${q}`,
+            aliases: [q],
+            name: `Estação WMO ${q}`,
+            state: 'WMO',
+            region: 'Rede Global de Radiossondagem',
+            country: 'Mundo',
+            lat: null,
+            lon: null,
+            elev: null,
+            badge: 'WMO'
+        };
+    }
+
+    return null;
 }
 
 // Retorna o ID WMO correto para consulta na Universidade de Wyoming

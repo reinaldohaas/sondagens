@@ -191,15 +191,78 @@ class SoundingApp {
             });
         });
 
-        // Campo de busca rápida de estações
+        // Campo de busca rápida de estações e suporte a URLs coladas da Univ. of Wyoming
         const searchInput = document.getElementById('stationSearchInput');
-        searchInput?.addEventListener('input', (e) => {
+        searchInput?.addEventListener('input', async (e) => {
             const val = e.target.value.trim();
+            if (!val) return;
+
+            // 1. Detecta se o usuário colou uma URL da Universidade de Wyoming
+            if (val.includes('weather.uwyo.edu') || val.includes('sounding?')) {
+                try {
+                    let parsedUrl;
+                    try {
+                        parsedUrl = new URL(val);
+                    } catch {
+                        parsedUrl = new URL('https://' + val.replace(/^https?:\/\//, ''));
+                    }
+                    const qId = parsedUrl.searchParams.get('id') || parsedUrl.searchParams.get('STNM');
+                    const qDt = parsedUrl.searchParams.get('datetime');
+
+                    if (qId) {
+                        this.currentStationId = qId;
+                        const match = findStation(qId);
+                        const sel = document.getElementById('stationSelect');
+                        if (sel) {
+                            let optExists = Array.from(sel.options).some(o => o.value === qId);
+                            if (!optExists) {
+                                const opt = document.createElement('option');
+                                opt.value = qId;
+                                opt.textContent = match ? `${qId} - ${match.name}` : `Estação WMO ${qId}`;
+                                sel.appendChild(opt);
+                            }
+                            sel.value = qId;
+                        }
+                        this.updateStationInfo();
+                    }
+
+                    if (qDt) {
+                        const dtClean = decodeURIComponent(qDt).trim();
+                        const parts = dtClean.split(/[\sT]+/);
+                        if (parts[0]) {
+                            const dateInput = document.getElementById('inputDate');
+                            if (dateInput) dateInput.value = parts[0];
+                            this.currentDate = parts[0];
+                        }
+                        if (parts[1]) {
+                            const hourPart = parts[1].substring(0, 2);
+                            const hourSelect = document.getElementById('inputHour');
+                            if (hourSelect) hourSelect.value = hourPart;
+                            this.currentHour = hourPart;
+                        }
+                    }
+
+                    this.showStatus(`🔗 Link da Univ. of Wyoming detectado: Estação ${qId || this.currentStationId}, data ${this.currentDate} ${this.currentHour}Z. Buscando...`, 'loading');
+                    await this.fetchSounding();
+                    return;
+                } catch (urlErr) {
+                    console.warn('Erro ao processar URL colada:', urlErr);
+                }
+            }
+
+            // 2. Busca por código WMO / ICAO ou nome da estação
             if (val.length >= 2) {
                 const match = findStation(val);
                 if (match) {
                     const sel = document.getElementById('stationSelect');
                     if (sel) {
+                        let optExists = Array.from(sel.options).some(o => o.value === match.id);
+                        if (!optExists) {
+                            const opt = document.createElement('option');
+                            opt.value = match.id;
+                            opt.textContent = `${match.id} - ${match.name}`;
+                            sel.appendChild(opt);
+                        }
                         sel.value = match.id;
                         this.currentStationId = match.id;
                         this.updateStationInfo();
@@ -460,6 +523,9 @@ class SoundingApp {
         // =============================================================
         // PASSO 2: PRIORIZAR SONDAGEM REAL NA UNIV. OF WYOMING (src=BUFR)
         // =============================================================
+        let lastWyomingStatus = null;
+        let lastWyomingErrorMsg = null;
+
         // 2A. Via backend Python local (/api/sounding) - já verifica disco e faz fetch Wyoming BUFR com timeout adequado
         try {
             const localApiUrl = `/api/sounding?id=${encodeURIComponent(wyomingId)}&datetime=${encodeURIComponent(dtFormatted)}`;
@@ -486,6 +552,10 @@ class SoundingApp {
                     this.showStatus(`${hitMsg} (${parsed.levels.length} níveis)`, 'success');
                     return;
                 }
+            } else {
+                lastWyomingStatus = localResp.status;
+                const errJson = await localResp.json().catch(() => null);
+                if (errJson && errJson.error) lastWyomingErrorMsg = errJson.error;
             }
         } catch (e) {
             console.log('Backend local não respondeu ou demorou. Tentando métodos alternativos...', e);
@@ -511,17 +581,23 @@ class SoundingApp {
                         return;
                     }
                 }
+            } else {
+                lastWyomingStatus = wyomingResp.status;
             }
         } catch (e) {
             // Wyoming bloqueado por CORS ou indisponível no cliente
         }
 
         // =============================================================
-        // PASSO 3: SONDAGEM REAL NÃO DISPONÍVEL NA WYOMING
+        // PASSO 3: SONDAGEM REAL NÃO DISPONÍVEL NA WYOMING OU SERVIDOR OCUPADO
         // =============================================================
         // NUNCA inventa nem simula sondagem artificial silenciosamente!
         const stnDisplay = stn ? `${stn.name} (WMO ${stn.id})` : `Estação ${stnId}`;
-        this.showStatus(`⚠️ A radiossondagem real NÃO está disponível na Universidade de Wyoming para ${stnDisplay} em ${dtFormatted}. Nenhum balão meteorológico foi registrado neste horário.`, 'warning');
+        if (lastWyomingStatus === 503 || (lastWyomingErrorMsg && lastWyomingErrorMsg.includes('503'))) {
+            this.showStatus(`⚠️ O servidor da Universidade de Wyoming está temporariamente sobrecarregado (HTTP 503: The server is too busy). Tente novamente em alguns instantes para ${stnDisplay} em ${dtFormatted}.`, 'warning');
+        } else {
+            this.showStatus(`⚠️ A radiossondagem real NÃO está disponível na Universidade de Wyoming para ${stnDisplay} em ${dtFormatted}. Nenhum balão meteorológico foi registrado neste horário.`, 'warning');
+        }
     }
 
     // Busca perfil vertical diretamente via API Open-Meteo GFS (Zero CORS block, 100% de disponibilidade)

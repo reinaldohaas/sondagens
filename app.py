@@ -36,6 +36,8 @@ STATION_MAPPING = {
     '83899': {'id': '83899', 'name': 'Florianópolis / Hercílio Luz (SC)'},
     'SBPA': {'id': '83971', 'name': 'Porto Alegre / Salgado Filho (RS)'},
     '83971': {'id': '83971', 'name': 'Porto Alegre / Salgado Filho (RS)'},
+    'SBCO': {'id': '83952', 'name': 'Canoas / Base Aérea (RS)'},
+    '83952': {'id': '83952', 'name': 'Canoas / Base Aérea (RS)'},
     'SBCT': {'id': '83840', 'name': 'Curitiba / Afonso Pena (PR)'},
     '83840': {'id': '83840', 'name': 'Curitiba / Afonso Pena (PR)'},
     'SBSM': {'id': '83936', 'name': 'Santa Maria (RS)'},
@@ -311,6 +313,7 @@ class SoundingRequestHandler(http.server.SimpleHTTPRequestHandler):
         wyoming_content = None
         source_tag = 'Wyoming_Real_BUFR'
 
+        last_error_503 = False
         try:
             req = urllib.request.Request(bufr_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
             with urllib.request.urlopen(req, timeout=25) as resp:
@@ -318,8 +321,12 @@ class SoundingRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if 'PRES' in txt:
                     wyoming_content = txt
                     print(f"  -> SUCESSO Wyoming BUFR: {len(txt)} bytes recebidos!")
+        except urllib.error.HTTPError as e:
+            if e.code == 503:
+                last_error_503 = True
+            print(f"  -> BUFR indisponível ({e}). Tentando Wyoming TEMP tradicional...")
         except Exception as e:
-            print(f"  -> BUFR indisponível ou 400 ({e}). Tentando Wyoming TEMP tradicional...")
+            print(f"  -> BUFR erro ({e}). Tentando Wyoming TEMP tradicional...")
 
         # 2B. Se falhar no BUFR, tenta sem src=BUFR (mensagem TEMP tradicional alfanumérica)
         if not wyoming_content:
@@ -333,6 +340,10 @@ class SoundingRequestHandler(http.server.SimpleHTTPRequestHandler):
                         wyoming_content = txt
                         source_tag = 'Wyoming_Real_TEMP'
                         print(f"  -> SUCESSO Wyoming TEMP Tradicional: {len(txt)} bytes recebidos!")
+            except urllib.error.HTTPError as e:
+                if e.code == 503:
+                    last_error_503 = True
+                print(f"  -> Wyoming Tradicional ({e}).")
             except Exception as e:
                 print(f"  -> Wyoming Tradicional sem dados ({e}).")
 
@@ -359,19 +370,27 @@ class SoundingRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # -------------------------------------------------------------
-        # PASSO 3: SONDAGEM REAL NÃO ENCONTRADA NA WYOMING
+        # PASSO 3: SONDAGEM REAL NÃO ENCONTRADA NA WYOMING OU SERVIDOR OCUPADO
         # -------------------------------------------------------------
         # NÃO inventa nem gera perfis sintéticos silenciosamente!
-        print(f"⚠️ [AVISO] Sondagem física NÃO disponível na Univ. of Wyoming para {stn_id} ({stn_name}) em {dt_val}.")
-        self.send_response(404)
+        resp_code = 503 if last_error_503 else 404
+        if last_error_503:
+            err_msg = f'O servidor da Universidade de Wyoming está temporariamente sobrecarregado (HTTP 503: The server is too busy). Tente novamente em instantes para {stn_name} (WMO {stn_id}).'
+            print(f"⚠️ [AVISO] Servidor Wyoming sobrecarregado (503) para {stn_id} ({stn_name}).")
+        else:
+            err_msg = f'Sondagem real não disponível na Universidade de Wyoming para {stn_name} (WMO {stn_id}) em {dt_val}. Nenhum balão meteorológico registrado neste horário.'
+            print(f"⚠️ [AVISO] Sondagem física NÃO disponível na Univ. of Wyoming para {stn_id} ({stn_name}) em {dt_val}.")
+
+        self.send_response(resp_code)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         err_payload = {
-            'error': f'Sondagem real não disponível na Universidade de Wyoming para {stn_name} (WMO {stn_id}) em {dt_val}. Nenhum balão meteorológico registrado neste horário.',
+            'error': err_msg,
             'station_id': stn_id,
             'station_name': stn_name,
             'datetime': dt_val,
+            'status': resp_code,
             'available': False
         }
         self.wfile.write(json.dumps(err_payload, ensure_ascii=False).encode('utf-8'))
